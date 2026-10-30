@@ -1,0 +1,9 @@
+{
+  "name": "Stock Audit",
+  "description": "Multi-store product stock audit system with blind counts, offline sync, GPS geofenced photo verification, and back-office reconciliation.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
