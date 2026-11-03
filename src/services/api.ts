@@ -96,9 +96,9 @@ function initStorage() {
     writeStorage(STORAGE_KEYS.LOGS, INITIAL_AUDIT_LOGS);
   }
   // Default login user: Alex Reed (Auditor)
-  if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-    writeStorage(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]);
-  }
+  //if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
+    //writeStorage(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]);
+  //}
 }
 
 initStorage();
@@ -166,45 +166,33 @@ export function calculateAuditDiscrepancy(item: AuditItem): {
 export const api = {
   // Authentication & Users
   async getCurrentUser(): Promise<User | null> {
-    return readStorage<User | null>(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]);
+    return readStorage<User | null>(STORAGE_KEYS.CURRENT_USER, null);
   },
 
   async setCurrentUser(user: User): Promise<void> {
     writeStorage(STORAGE_KEYS.CURRENT_USER, user);
   },
 
-  async login(loginIdOrEmail: string, _password?: string, branchId?: string): Promise<{ success: boolean; user?: User; error?: string }> {
-    const users = readStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
-    const trimmed = loginIdOrEmail.trim().toLowerCase();
-    const found = users.find(
-      (u) =>
-        u.employeeId.toLowerCase() === trimmed ||
-        u.email.toLowerCase() === trimmed ||
-        u.name.toLowerCase() === trimmed
-    );
-
-    if (found) {
-      if (branchId && found.role === 'auditor' && !found.assignedStoreIds.includes(branchId)) {
-        const stores = readStorage<Store[]>(STORAGE_KEYS.STORES, INITIAL_STORES);
-        const branchObj = stores.find((s) => s.id === branchId);
-        const assignedBranches = stores
-          .filter((s) => found.assignedStoreIds.includes(s.id))
-          .map((s) => s.name);
-        return {
-          success: false,
-          error: `Branch Access Denied: You do not have audit permissions for "${branchObj?.name || branchId}". Your assigned branches: ${assignedBranches.join(', ')}.`,
-        };
+  async login(loginIdOrEmail: string, password?: string, branchId?: string): Promise<{ success: boolean; user?: User; error?: string }> {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loginId: loginIdOrEmail, password, storeId: branchId }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        writeStorage(STORAGE_KEYS.CURRENT_USER, data.user);
+        return { success: true, user: data.user as User };
       }
-      writeStorage(STORAGE_KEYS.CURRENT_USER, found);
-      return { success: true, user: found };
+      return { success: false, error: data.error || 'Login failed.' };
+    } catch {
+      return { success: false, error: 'Cannot reach server. Check your internet.' };
     }
-    return {
-      success: false,
-      error: 'Invalid Login ID or Password. Please check credentials or contact admin.',
-    };
   },
 
-  async logout(): Promise<void> {
+ async logout(): Promise<void> {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch { /* offline */ }
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   },
 
@@ -226,7 +214,15 @@ export const api = {
 
   // Stores
   async getStores(): Promise<Store[]> {
-    return readStorage<Store[]>(STORAGE_KEYS.STORES, INITIAL_STORES);
+    try {
+      const res = await fetch('/api/stores');
+      if (res.ok) {
+        const data = await res.json();
+        writeStorage(STORAGE_KEYS.STORES, data.stores);
+        return data.stores as Store[];
+      }
+    } catch { /* offline: use saved list */ }
+    return readStorage<Store[]>(STORAGE_KEYS.STORES, []);
   },
 
   async getStoreById(id: string): Promise<Store | undefined> {
