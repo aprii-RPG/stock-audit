@@ -95,10 +95,6 @@ function initStorage() {
   if (!localStorage.getItem(STORAGE_KEYS.LOGS)) {
     writeStorage(STORAGE_KEYS.LOGS, INITIAL_AUDIT_LOGS);
   }
-  // Default login user: Alex Reed (Auditor)
-  //if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-    //writeStorage(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[0]);
-  //}
 }
 
 initStorage();
@@ -191,7 +187,7 @@ export const api = {
     }
   },
 
- async logout(): Promise<void> {
+  async logout(): Promise<void> {
     try { await fetch('/api/logout', { method: 'POST' }); } catch { /* offline */ }
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   },
@@ -244,7 +240,15 @@ export const api = {
 
   // Products
   async getProducts(): Promise<Product[]> {
-    return readStorage<Product[]>(STORAGE_KEYS.PRODUCTS, MEDICINE_PRODUCTS);
+    try {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const data = await res.json();
+        writeStorage(STORAGE_KEYS.PRODUCTS, data.products);
+        return data.products as Product[];
+      }
+    } catch { /* offline: use saved list */ }
+    return readStorage<Product[]>(STORAGE_KEYS.PRODUCTS, []);
   },
 
   async getProductById(id: string): Promise<Product | undefined> {
@@ -266,11 +270,15 @@ export const api = {
 
   // Audits
   async getAudits(storeId?: string): Promise<Audit[]> {
-    const audits = readStorage<Audit[]>(STORAGE_KEYS.AUDITS, INITIAL_AUDITS);
-    if (!storeId || storeId === 'ALL') {
-      return audits;
-    }
-    return audits.filter((a) => a.storeId === storeId);
+    const qs = storeId && storeId !== 'ALL' ? `?storeId=${encodeURIComponent(storeId)}` : '';
+    try {
+      const res = await fetch('/api/audits' + qs);
+      if (res.ok) {
+        const data = await res.json();
+        return data.audits as Audit[];
+      }
+    } catch { /* offline */ }
+    return [];
   },
 
   async getAuditById(auditId: string): Promise<Audit | undefined> {
@@ -288,75 +296,26 @@ export const api = {
     filterValue?: string;
     notes?: string;
   }): Promise<Audit> {
-    const store = await this.getStoreById(payload.storeId);
-    if (!store) throw new Error('Store not found');
-
-    const prefixStore = store.name.split(' ')[0].toUpperCase();
-    const generatedName = `${prefixStore} / ${payload.type} / ${payload.date}`;
-
-    const newAudit: Audit = {
-      id: `AUD-${Date.now()}`,
-      name: generatedName,
-      storeId: payload.storeId,
-      storeName: store.name,
-      type: payload.type,
-      date: payload.date,
-      status: 'in_progress',
-      assignedAuditorIds: payload.assignedAuditorIds,
-      assignedBackOfficeIds: payload.assignedBackOfficeIds,
-      snapshotLockedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      cutoffBillNo: `#INV-${Math.floor(10000 + Math.random() * 90000)}`,
-      notes: payload.notes,
-      createdAt: new Date().toISOString(),
-    };
-
-    const audits = await this.getAudits();
-    audits.unshift(newAudit);
-    writeStorage(STORAGE_KEYS.AUDITS, audits);
-
-    // Populate audit items based on product filter
-    const allProducts = await this.getProducts();
-    let selectedProducts = allProducts;
-    if (payload.productSelectionType === 'category' && payload.filterValue) {
-      selectedProducts = allProducts.filter((p) => p.category === payload.filterValue);
-    } else if (payload.productSelectionType === 'company' && payload.filterValue) {
-      selectedProducts = allProducts.filter((p) => p.company === payload.filterValue);
-    } else if (payload.productSelectionType === 'not_audited_days') {
-      // Pick random 15 products as overdue
-      selectedProducts = allProducts.slice(0, 20);
-    }
-
-    const items = readStorage<AuditItem[]>(STORAGE_KEYS.AUDIT_ITEMS, []);
-    const newItems: AuditItem[] = selectedProducts.map((p, idx) => ({
-      id: `ITM-${newAudit.id}-${idx}`,
-      auditId: newAudit.id,
-      productId: p.id,
-      product: p,
-      bin: p.defaultBin || '',
-      snapshotQty: Math.floor(10 + Math.random() * 80),
-      salesAfterCutoff: idx % 3 === 0 ? 1 : 0,
-      returnsAfterCutoff: 0,
-      purchasesAfterCutoff: 0,
-      photoStatus: 'none',
-      status: 'not_started',
-    }));
-
-    writeStorage(STORAGE_KEYS.AUDIT_ITEMS, [...items, ...newItems]);
-
-    await this.logAction({
-      action: 'AUDIT_CREATED',
-      details: `Audit ${newAudit.name} created with ${newItems.length} products. Cutoff bill: ${newAudit.cutoffBillNo}`,
-      auditId: newAudit.id,
-      auditName: newAudit.name,
+    const res = await fetch('/api/audits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-
-    return newAudit;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not create audit.');
+    return data.audit as Audit;
   },
 
   // Audit Items & Counts
   async getAuditItems(auditId: string): Promise<AuditItem[]> {
-    const items = readStorage<AuditItem[]>(STORAGE_KEYS.AUDIT_ITEMS, []);
-    return items.filter((i) => i.auditId === auditId);
+    try {
+      const res = await fetch('/api/audit-items?auditId=' + encodeURIComponent(auditId));
+      if (res.ok) {
+        const data = await res.json();
+        return data.items as AuditItem[];
+      }
+    } catch { /* offline */ }
+    return [];
   },
 
   async getAuditItem(auditId: string, productId: string): Promise<AuditItem | undefined> {
