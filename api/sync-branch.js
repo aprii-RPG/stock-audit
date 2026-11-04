@@ -6,11 +6,20 @@ import { logAction } from "../lib/auth.js";
 
 const MAX_ROWS = 1000;
 
-function keyOk(req) {
+/*function keyOk(req) {
   const given = String(req.headers["x-sync-key"] || "");
   const expected = String(process.env.SYNC_API_KEY || "");
   if (!expected || given.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+}*/
+function keyCheck(req) {
+  const given = String(req.headers["x-sync-key"] || "").trim();
+  const expected = String(process.env.SYNC_API_KEY || "").trim();
+  if (!expected) return "Server pe SYNC_API_KEY set nahi hai";
+  if (given.length !== expected.length)
+    return `Key length alag hai (sheet: ${given.length}, server: ${expected.length})`;
+  const same = crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+  return same ? null : "Key match nahi hui";
 }
 
 const s = (v) => (v === null || v === undefined ? "" : String(v).trim());
