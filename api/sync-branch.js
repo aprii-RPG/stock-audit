@@ -30,7 +30,8 @@ const n = (v) => {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  if (!keyOk(req)) return res.status(401).json({ error: "Bad sync key" });
+  const bad = keyCheck(req);
+if (bad) return res.status(401).json({ error: bad });
 
   const { storeCode, rows } = req.body || {};
   if (!storeCode || !Array.isArray(rows) || rows.length === 0) {
