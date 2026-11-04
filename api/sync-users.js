@@ -12,8 +12,8 @@ const MAX_USERS = 30; // bcrypt is slow, so the sheet sends users in small chunk
 // Check your DB with:  SELECT DISTINCT role FROM users;  and change the right side if needed.
 const ROLE_MAP = {
   "admin": "admin",
-  "back office": "back_office",
-  "backoffice": "back_office",
+  "back office": "back office",
+  "backoffice": "back office",
   "auditor": "auditor",
 };
 const roleKey = (v) => String(v || "").toLowerCase().replace(/[\s_-]+/g, " ").trim();
