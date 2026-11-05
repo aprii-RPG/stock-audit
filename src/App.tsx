@@ -54,7 +54,7 @@ export default function App() {
   const [logs, setLogs] = useState<any[]>([]);
 
   // Navigation & View State
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('STR-01');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
   const [activeAudit, setActiveAudit] = useState<Audit | null>(null);
   const [selectedAuditItem, setSelectedAuditItem] = useState<AuditItem | null>(null);
   const [backOfficeTab, setBackOfficeTab] = useState<BackOfficeTab>('dashboard');
@@ -325,7 +325,6 @@ export default function App() {
       {/* Top Bar with Store Selector & User profile */}
       <TopBar
         currentUser={currentUser}
-        allUsers={allUsers}
         stores={stores}
         selectedStoreId={selectedStoreId}
         onSelectStore={(id) => {
@@ -334,7 +333,6 @@ export default function App() {
           const storeAudit = audits.find((a) => a.storeId === id);
           if (storeAudit) setActiveAudit(storeAudit);
         }}
-        onSwitchUser={handleSwitchUser}
         onLogout={handleLogout}
         unsyncedCount={unsyncedCount}
         onSync={handleSyncNow}

@@ -20,17 +20,6 @@ import {
   markAsSynced,
   queueOfflineCount,
 } from './db';
-import {
-  generateInitialAuditItems,
-  INITIAL_AUDIT_LOGS,
-  INITIAL_AUDITS,
-  INITIAL_BIN_SUGGESTIONS,
-  INITIAL_CUTOFF_BILLS,
-  INITIAL_SETTINGS,
-  INITIAL_STORES,
-  INITIAL_USERS,
-  MEDICINE_PRODUCTS,
-} from './mockData';
 
 // Local storage keys
 const STORAGE_KEYS = {
@@ -44,6 +33,24 @@ const STORAGE_KEYS = {
   BIN_SUGGESTIONS: 'stock_audit_bin_suggestions',
   SETTINGS: 'stock_audit_settings',
   LOGS: 'stock_audit_logs',
+};
+
+const DEFAULT_SETTINGS: SystemSettings = {
+  autoApproveToleranceUnits: 1,
+  autoApproveToleranceValue: 15,
+  storeManagerApprovalThreshold: 100,
+  hoApprovalThreshold: 500,
+  defaultGeofenceRadiusMeters: 150,
+  reasons: [
+    { code: 'expired', label: 'Expired Product', description: 'Stock reached shelf expiry date before sale' },
+    { code: 'damaged', label: 'Damaged / Broken', description: 'Physical bottle breakage, foil tear, or seal damage' },
+    { code: 'theft_loss', label: 'Theft / Unaccounted Loss', description: 'Pilferage or missing without transaction' },
+    { code: 'wrong_billing', label: 'Wrong Billing / Mismatch', description: 'Billed as another pack or dosage variant' },
+    { code: 'purchase_not_entered', label: 'Purchase Not Entered', description: 'Supplier stock received physically but GRN unposted' },
+    { code: 'return_not_entered', label: 'Return Not Entered', description: 'Customer returned product without POS credit note' },
+    { code: 'wrong_batch', label: 'Wrong Batch Selected', description: 'Stock swapped with alternate batch number' },
+    { code: 'none', label: 'No Reason / Balanced', description: 'Zero variance or within approved variance tolerance' },
+  ],
 };
 
 // Safe storage helpers
@@ -66,38 +73,25 @@ function writeStorage<T>(key: string, data: T): void {
   }
 }
 
-// Ensure seeded storage
-function initStorage() {
-  if (!localStorage.getItem(STORAGE_KEYS.STORES)) {
-    writeStorage(STORAGE_KEYS.STORES, INITIAL_STORES);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-    writeStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.PRODUCTS)) {
-    writeStorage(STORAGE_KEYS.PRODUCTS, MEDICINE_PRODUCTS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.AUDITS)) {
-    writeStorage(STORAGE_KEYS.AUDITS, INITIAL_AUDITS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.AUDIT_ITEMS)) {
-    writeStorage(STORAGE_KEYS.AUDIT_ITEMS, generateInitialAuditItems());
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.CUTOFF_BILLS)) {
-    writeStorage(STORAGE_KEYS.CUTOFF_BILLS, INITIAL_CUTOFF_BILLS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.BIN_SUGGESTIONS)) {
-    writeStorage(STORAGE_KEYS.BIN_SUGGESTIONS, INITIAL_BIN_SUGGESTIONS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.SETTINGS)) {
-    writeStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.LOGS)) {
-    writeStorage(STORAGE_KEYS.LOGS, INITIAL_AUDIT_LOGS);
-  }
+function removeLegacyDemoCache() {
+  const demoUserIds = new Set(['USR-01', 'USR-02', 'USR-03']);
+  const cachedUsers = readStorage<User[]>(STORAGE_KEYS.USERS, []);
+  if (!cachedUsers.some((user) => demoUserIds.has(user.id))) return;
+
+  [
+    STORAGE_KEYS.CURRENT_USER,
+    STORAGE_KEYS.USERS,
+    STORAGE_KEYS.STORES,
+    STORAGE_KEYS.PRODUCTS,
+    STORAGE_KEYS.AUDITS,
+    STORAGE_KEYS.AUDIT_ITEMS,
+    STORAGE_KEYS.CUTOFF_BILLS,
+    STORAGE_KEYS.BIN_SUGGESTIONS,
+    STORAGE_KEYS.LOGS,
+  ].forEach((key) => localStorage.removeItem(key));
 }
 
-initStorage();
+removeLegacyDemoCache();
 
 // Distance calculation using Haversine formula (returns meters)
 export function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -193,11 +187,21 @@ export const api = {
   },
 
   async getUsers(): Promise<User[]> {
-    return readStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
+    try {
+      const res = await fetch('/api/users');
+      if (res.status === 401 || res.status === 403) return [];
+      if (!res.ok) throw new Error(`Could not load users (${res.status}).`);
+      const data = await res.json();
+      if (!Array.isArray(data.users)) throw new Error('Invalid users response.');
+      return data.users as User[];
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      return [];
+    }
   },
 
   async saveUser(user: User): Promise<User> {
-    const users = readStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
+    const users = readStorage<User[]>(STORAGE_KEYS.USERS, []);
     const index = users.findIndex((u) => u.id === user.id);
     if (index >= 0) {
       users[index] = user;
@@ -369,8 +373,8 @@ export const api = {
     // Update in-memory / storage item
     currentItem.physicalCount = payload.physicalCount;
     currentItem.countSavedAt = new Date().toISOString();
-    currentItem.countedByUserId = currentUser?.id || 'USR-01';
-    currentItem.countedByUserName = currentUser?.name || 'Alex Reed';
+    currentItem.countedByUserId = currentUser?.id;
+    currentItem.countedByUserName = currentUser?.name;
     currentItem.bin = updatedBin;
 
     if (payload.photoDataUrl) {
@@ -680,21 +684,9 @@ export const api = {
 
   // Cutoff Bills Drilldown
   async getCutoffBills(auditId: string, productId: string): Promise<CutoffBillItem[]> {
-    const billsMap = readStorage<Record<string, CutoffBillItem[]>>(STORAGE_KEYS.CUTOFF_BILLS, INITIAL_CUTOFF_BILLS);
+    const billsMap = readStorage<Record<string, CutoffBillItem[]>>(STORAGE_KEYS.CUTOFF_BILLS, {});
     const key = `${auditId}_${productId}`;
-    if (billsMap[key]) {
-      return billsMap[key];
-    }
-    // Return realistic generated post-cutoff transactions if not explicitly defined
-    return [
-      {
-        billNo: '#INV-84922',
-        time: '08:45 AM',
-        customerOrPatient: 'Counter Walk-in',
-        qty: 1,
-        type: 'sale',
-      },
-    ];
+    return billsMap[key] || [];
   },
 
   // Bin Suggestions Queue
@@ -714,18 +706,18 @@ export const api = {
     const suggestion: BinSuggestion = {
       id: `BSUG-${Date.now()}`,
       auditId,
-      storeId: audit?.storeId || 'STR-01',
+      storeId: audit?.storeId || '',
       productId,
-      productName: product?.name || 'Unknown Medicine',
+      productName: product?.name || '',
       suggestedBin: normalized,
-      auditorId: currentUser?.id || 'USR-01',
-      auditorName: currentUser?.name || 'Alex Reed',
+      auditorId: currentUser?.id || '',
+      auditorName: currentUser?.name || '',
       createdAt: new Date().toISOString(),
       status: 'pending',
       similarExistingBins: similar.slice(0, 3),
     };
 
-    const list = readStorage<BinSuggestion[]>(STORAGE_KEYS.BIN_SUGGESTIONS, INITIAL_BIN_SUGGESTIONS);
+    const list = readStorage<BinSuggestion[]>(STORAGE_KEYS.BIN_SUGGESTIONS, []);
     list.unshift(suggestion);
     writeStorage(STORAGE_KEYS.BIN_SUGGESTIONS, list);
 
@@ -741,12 +733,12 @@ export const api = {
   },
 
   async getBinSuggestions(): Promise<BinSuggestion[]> {
-    return readStorage<BinSuggestion[]>(STORAGE_KEYS.BIN_SUGGESTIONS, INITIAL_BIN_SUGGESTIONS);
+    return readStorage<BinSuggestion[]>(STORAGE_KEYS.BIN_SUGGESTIONS, []);
   },
 
   async reviewBinSuggestion(id: string, approved: boolean, note?: string): Promise<void> {
     const currentUser = await this.getCurrentUser();
-    const list = readStorage<BinSuggestion[]>(STORAGE_KEYS.BIN_SUGGESTIONS, INITIAL_BIN_SUGGESTIONS);
+    const list = readStorage<BinSuggestion[]>(STORAGE_KEYS.BIN_SUGGESTIONS, []);
     const idx = list.findIndex((s) => s.id === id);
     if (idx === -1) return;
 
@@ -804,16 +796,16 @@ export const api = {
       timeline.push({
         auditId: item.auditId,
         auditName: audit?.name || item.auditId,
-        date: audit?.date || '2026-10-22',
-        storeName: audit?.storeName || 'Apex Central Pharmacy',
+        date: audit?.date || '',
+        storeName: audit?.storeName || '',
         bin: item.bin || 'None',
         snapshotQty: item.snapshotQty,
-        physicalCount: item.physicalCount ?? item.snapshotQty,
+        physicalCount: item.physicalCount ?? 0,
         finalDifference: disc.difference,
         differenceValue: disc.differenceValue,
         differenceReason: item.differenceReason,
-        approverName: item.approvedByName || 'Sarah Jenkins',
-        erpAdjustmentNo: item.erpAdjustmentNo || 'ADJ-84902',
+        approverName: item.approvedByName || '',
+        erpAdjustmentNo: item.erpAdjustmentNo,
       });
     }
 
@@ -856,7 +848,7 @@ export const api = {
 
   // Admin & System Settings
   async getAdminSettings(): Promise<SystemSettings> {
-    return readStorage<SystemSettings>(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
+    return readStorage<SystemSettings>(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
   },
 
   async updateAdminSettings(settings: SystemSettings): Promise<SystemSettings> {
@@ -871,7 +863,7 @@ export const api = {
 
   // Audit Logs
   async getAuditLogs(): Promise<AuditLogEntry[]> {
-    return readStorage<AuditLogEntry[]>(STORAGE_KEYS.LOGS, INITIAL_AUDIT_LOGS);
+    return readStorage<AuditLogEntry[]>(STORAGE_KEYS.LOGS, []);
   },
 
   async logAction(entry: {
@@ -883,7 +875,7 @@ export const api = {
     productName?: string;
   }): Promise<void> {
     const currentUser = await this.getCurrentUser();
-    const logs = readStorage<AuditLogEntry[]>(STORAGE_KEYS.LOGS, INITIAL_AUDIT_LOGS);
+    const logs = readStorage<AuditLogEntry[]>(STORAGE_KEYS.LOGS, []);
     const newLog: AuditLogEntry = {
       id: `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),

@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import {
   Building2,
-  User as UserIcon,
   LogOut,
   ChevronDown,
   RefreshCw,
-  Shield,
   Layers,
-  Sparkles,
   Smartphone,
   LayoutDashboard,
 } from 'lucide-react';
@@ -16,11 +13,9 @@ import { PWAInstallButton } from '../common/PWAInstallButton';
 
 interface TopBarProps {
   currentUser: User | null;
-  allUsers: User[];
   stores: Store[];
   selectedStoreId: string;
   onSelectStore: (storeId: string) => void;
-  onSwitchUser: (user: User) => void;
   onLogout: () => void;
   unsyncedCount: number;
   onSync: () => void;
@@ -31,11 +26,9 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({
   currentUser,
-  allUsers,
   stores,
   selectedStoreId,
   onSelectStore,
-  onSwitchUser,
   onLogout,
   unsyncedCount,
   onSync,
@@ -173,37 +166,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                         {currentUser?.role}
                       </span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Quick Role Switcher for seamless testing */}
-                <div className="p-2 border-b border-slate-100">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 mb-1.5 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Quick Switch Profile</span>
-                  </p>
-                  <div className="space-y-1">
-                    {allUsers.map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => onSwitchUser(u)}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition text-left min-h-[38px] ${
-                          currentUser?.id === u.id
-                            ? 'bg-blue-50 text-[#1D5FD1] font-bold'
-                            : 'hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        <div>
-                          <span>{u.name}</span>
-                          <span className="block text-[10px] text-slate-400 capitalize">{u.role}</span>
-                        </div>
-                        {currentUser?.id === u.id && (
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-100/60 px-1.5 py-0.5 rounded">
-                            Active
-                          </span>
-                        )}
-                      </button>
-                    ))}
                   </div>
                 </div>
 

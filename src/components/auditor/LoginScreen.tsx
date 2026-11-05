@@ -7,7 +7,6 @@ import {
   Shield,
   AlertCircle,
   Check,
-  Sparkles,
   Building2,
   ChevronDown,
 } from 'lucide-react';
@@ -22,10 +21,10 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores, onLoginSuccess }) => {
   const [stores, setStores] = useState<Store[]>(initialStores || []);
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    initialStores && initialStores.length > 0 ? initialStores[0].id : 'STR-01'
+    initialStores && initialStores.length > 0 ? initialStores[0].id : ''
   );
-  const [loginId, setLoginId] = useState('EMP-101');
-  const [password, setPassword] = useState('audit123');
+  const [loginId, setLoginId] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,13 +80,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const setDemoUser = (id: string, branchId: string) => {
-    setLoginId(id);
-    setPassword('audit123');
-    setSelectedBranchId(branchId);
-    setError(null);
   };
 
   const currentBranch = stores.find((s) => s.id === selectedBranchId);
@@ -172,7 +164,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
                     setLoginId(e.target.value);
                     setError(null);
                   }}
-                  placeholder="e.g. EMP-101 or alex.auditor@stockaudit.com"
+                  placeholder="Employee ID or email"
                   required
                   className="w-full pl-10 pr-3.5 py-3 text-xs sm:text-sm font-medium rounded-xl border border-blue-200 bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#1D5FD1] focus:border-transparent min-h-[44px]"
                 />
@@ -222,7 +214,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
 
               <button
                 type="button"
-                onClick={() => alert('Please contact Marcus Vance (IT/Admin) at marcus.admin@stockaudit.com')}
+                onClick={() => alert('Please contact your system administrator to reset your password.')}
                 className="text-xs text-[#1D5FD1] font-semibold hover:underline"
               >
                 Forgot password?
@@ -246,56 +238,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
             </button>
           </form>
 
-          {/* Quick Demo Login selector */}
-          <div className="mt-8 pt-5 border-t border-slate-100">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              <span>Quick Test Logins:</span>
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setDemoUser('EMP-101', 'STR-01')}
-                className={`p-2 rounded-xl border text-left transition min-h-[44px] ${
-                  loginId === 'EMP-101'
-                    ? 'border-[#1D5FD1] bg-blue-50/70 text-[#0B3D91]'
-                    : 'border-slate-200 hover:border-blue-200 text-slate-700 bg-white'
-                }`}
-              >
-                <p className="text-xs font-bold leading-tight">Auditor</p>
-                <p className="text-[10px] text-slate-500">Alex (EMP-101)</p>
-                <p className="text-[9px] text-blue-600 font-semibold truncate mt-0.5">Apex Central</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDemoUser('EMP-202', 'STR-01')}
-                className={`p-2 rounded-xl border text-left transition min-h-[44px] ${
-                  loginId === 'EMP-202'
-                    ? 'border-[#1D5FD1] bg-blue-50/70 text-[#0B3D91]'
-                    : 'border-slate-200 hover:border-blue-200 text-slate-700 bg-white'
-                }`}
-              >
-                <p className="text-xs font-bold leading-tight">Back Office</p>
-                <p className="text-[10px] text-slate-500">Sarah (EMP-202)</p>
-                <p className="text-[9px] text-blue-600 font-semibold truncate mt-0.5">All Branches</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDemoUser('EMP-303', 'STR-01')}
-                className={`p-2 rounded-xl border text-left transition min-h-[44px] ${
-                  loginId === 'EMP-303'
-                    ? 'border-[#1D5FD1] bg-blue-50/70 text-[#0B3D91]'
-                    : 'border-slate-200 hover:border-blue-200 text-slate-700 bg-white'
-                }`}
-              >
-                <p className="text-xs font-bold leading-tight">Admin</p>
-                <p className="text-[10px] text-slate-500">Marcus (EMP-303)</p>
-                <p className="text-[9px] text-blue-600 font-semibold truncate mt-0.5">All Branches</p>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Security badge */}

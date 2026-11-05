@@ -171,15 +171,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
   const selectedItemBills: CutoffBillItem[] =
     selectedItem && activeAudit
-      ? cutoffBillsMap[`${activeAudit.id}_${selectedItem.productId}`] || [
-          {
-            billNo: '#INV-84922',
-            time: '08:45 AM',
-            customerOrPatient: 'Direct Walk-in',
-            qty: selectedItem.salesAfterCutoff || 1,
-            type: 'sale',
-          },
-        ]
+      ? cutoffBillsMap[`${activeAudit.id}_${selectedItem.productId}`] || []
       : [];
 
   const selectedItemDisc = selectedItem ? calculateAuditDiscrepancy(selectedItem) : null;
@@ -423,13 +415,13 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-[10px] space-y-0.5">
                     <p className="font-bold flex items-center gap-1">
                       <Camera className="w-3 h-3 text-blue-300" />
-                      <span>By {selectedItem.countedByUserName || 'Alex Reed'}</span>
+                      <span>By {selectedItem.countedByUserName || '—'}</span>
                     </p>
                     <p className="text-slate-300 flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-emerald-400" />
                       <span>
-                        Dist: {selectedItem.photoDistanceFromStoreM ?? 12}m from store (±
-                        {selectedItem.photoGpsAccuracy ?? 6}m)
+                        Dist: {selectedItem.photoDistanceFromStoreM ?? '—'}m from store (±
+                        {selectedItem.photoGpsAccuracy ?? '—'}m)
                       </span>
                     </p>
                   </div>
@@ -467,7 +459,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   Final Diff = Physical - (Snapshot - Sales + Returns)
                 </p>
                 <div className="p-2 bg-white rounded-lg border border-blue-100 font-mono text-xs text-slate-800">
-                  <span>{selectedItem.physicalCount ?? 0}</span>
+                  <span>{selectedItem.physicalCount ?? '—'}</span>
                   <span className="text-slate-400"> - (</span>
                   <span>{selectedItem.snapshotQty}</span>
                   <span className="text-amber-600"> - {selectedItem.salesAfterCutoff}</span>
@@ -613,7 +605,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                       ))}
                   </select>
                   <p className="text-[10px] text-amber-700 mt-1">
-                    Original counter: <strong>{selectedItem.countedByUserName || 'Alex Reed'}</strong>{' '}
+                    Original counter: <strong>{selectedItem.countedByUserName || '—'}</strong>{' '}
                     (excluded per business rule)
                   </p>
                 </div>

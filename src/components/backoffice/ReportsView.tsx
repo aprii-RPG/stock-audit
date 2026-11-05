@@ -74,14 +74,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   // Report 2: Not audited in last N days per store
   const notAuditedProducts = products.map((prod) => {
-    const lastAuditDate = prod.lastAuditedDate ? new Date(prod.lastAuditedDate) : new Date('2026-05-01');
-    const today = new Date('2026-10-22');
-    const diffDays = Math.round((today.getTime() - lastAuditDate.getTime()) / (1000 * 3600 * 24));
+    const lastAuditDate = prod.lastAuditedDate ? new Date(prod.lastAuditedDate) : null;
+    const diffDays = lastAuditDate
+      ? Math.floor((Date.now() - lastAuditDate.getTime()) / (1000 * 3600 * 24))
+      : null;
     return {
       product: prod,
-      lastAuditDate: prod.lastAuditedDate || '2026-05-01',
+      lastAuditDate: prod.lastAuditedDate || 'Never audited',
       diffDays,
-      isOverdue: diffDays >= overdueDaysThreshold,
+      isOverdue: diffDays === null || diffDays >= overdueDaysThreshold,
     };
   }).filter((x) => x.isOverdue);
 
@@ -92,7 +93,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       p.product.name,
       p.product.company,
       p.lastAuditDate,
-      p.diffDays,
+      p.diffDays ?? 'Never audited',
       p.product.lastAuditedResult || 'N/A',
     ]);
     downloadCSV(`StockAudit_Overdue_${overdueDaysThreshold}_Days`, headers, rows);
@@ -377,7 +378,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     <td className="py-3 px-3 font-mono">{p.lastAuditDate}</td>
                     <td className="py-3 px-3 text-center">
                       <span className="font-bold px-2 py-0.5 rounded text-rose-700 bg-rose-50 border border-rose-200 font-mono">
-                        {p.diffDays} days
+                        {p.diffDays === null ? 'Never audited' : `${p.diffDays} days`}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-xs text-slate-600">

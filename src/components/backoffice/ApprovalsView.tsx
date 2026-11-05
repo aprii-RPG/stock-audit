@@ -109,7 +109,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
           <p className="font-bold text-rose-900 mt-0.5">
             Variances over ${settings.storeManagerApprovalThreshold}
           </p>
-          <p className="text-slate-500 text-[11px] mt-0.5">Escalated to Marcus Vance (HO Lead)</p>
+          <p className="text-slate-500 text-[11px] mt-0.5">Escalated for Head Office review</p>
         </div>
       </div>
 

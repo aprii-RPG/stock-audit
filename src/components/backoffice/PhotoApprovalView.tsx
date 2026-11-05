@@ -43,7 +43,7 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
     const audit = audits.find((a) => a.id === item.auditId);
     const store = stores.find((s) => s.id === audit?.storeId);
     const geofence = store?.geofenceRadiusMeters || 150;
-    const isOutside = (item.photoDistanceFromStoreM ?? 0) > geofence;
+    const isOutside = item.photoDistanceFromStoreM !== undefined && item.photoDistanceFromStoreM > geofence;
 
     if (filterState === 'pending') {
       return item.photoStatus === 'pending';
@@ -141,8 +141,8 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
             const audit = audits.find((a) => a.id === item.auditId);
             const store = stores.find((s) => s.id === audit?.storeId);
             const geofence = store?.geofenceRadiusMeters || 150;
-            const dist = item.photoDistanceFromStoreM ?? 12;
-            const isOutside = dist > geofence;
+            const dist = item.photoDistanceFromStoreM;
+            const isOutside = dist !== undefined && dist > geofence;
 
             return (
               <div
@@ -216,7 +216,7 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
                     <div className="flex items-center justify-between text-slate-600">
                       <span className="font-semibold">Auditor:</span>
                       <span className="text-slate-800 font-medium">
-                        {item.countedByUserName || 'Alex Reed'}
+                        {item.countedByUserName || '—'}
                       </span>
                     </div>
 
@@ -245,7 +245,9 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
                           isOutside ? 'text-rose-600' : 'text-emerald-700'
                         }`}
                       >
-                        {dist} meters {isOutside ? '(Outside)' : '(Within radius)'}
+                        {dist === undefined
+                          ? 'Distance not recorded'
+                          : `${dist} meters ${isOutside ? '(Outside)' : '(Within radius)'}`}
                       </span>
                     </div>
                   </div>
@@ -339,7 +341,7 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
               <div>
                 <h4 className="text-sm font-bold">{selectedPhotoItem.product.name}</h4>
                 <p className="text-xs text-slate-400">
-                  Auditor: {selectedPhotoItem.countedByUserName || 'Alex Reed'} •{' '}
+                  Auditor: {selectedPhotoItem.countedByUserName || '—'} •{' '}
                   {selectedPhotoItem.photoDistanceFromStoreM}m from store
                 </p>
               </div>

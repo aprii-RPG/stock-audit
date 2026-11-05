@@ -171,7 +171,7 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
             <History className="w-4 h-4 text-[#1D5FD1] shrink-0" />
             <div className="text-slate-700">
               <span className="font-semibold text-slate-900">Last Audited: </span>
-              <span>{item.product.lastAuditedDate || '2026-08-15'}</span>
+              <span>{item.product.lastAuditedDate || 'Not available'}</span>
               <span className="mx-1.5">•</span>
               <span className="font-semibold text-emerald-700">
                 {item.product.lastAuditedResult || 'Approved (No variance)'}
