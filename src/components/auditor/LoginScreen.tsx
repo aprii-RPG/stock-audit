@@ -114,7 +114,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
             {/* 1. Branch Name Dropdown */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
@@ -159,6 +159,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
                 <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
+                  autoComplete="off"
                   value={loginId}
                   onChange={(e) => {
                     setLoginId(e.target.value);
@@ -180,6 +181,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ stores: initialStores,
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="off"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
