@@ -327,139 +327,38 @@ export const api = {
     return items.find((i) => i.productId === productId);
   },
 
+  // ===== Replace the OLD saveCount() and uploadPhoto() (lines 330 to 463 of api.ts) with these two =====
+
   async saveCount(payload: {
     auditId: string;
     productId: string;
     physicalCount: number;
     binName?: string;
-    photoDataUrl?: string;
-    gps?: {
-      lat: number;
-      lng: number;
-      accuracy: number;
-      distanceM: number;
-      withinWindow: boolean;
-    };
   }): Promise<{ item: AuditItem; autoApproved: boolean; offlineQueued: boolean }> {
-    const currentUser = await this.getCurrentUser();
-    const settings = await this.getAdminSettings();
-    const items = readStorage<AuditItem[]>(STORAGE_KEYS.AUDIT_ITEMS, []);
-    const idx = items.findIndex((i) => i.auditId === payload.auditId && i.productId === payload.productId);
-
-    if (idx === -1) {
-      throw new Error('Audit item not found');
-    }
-
-    const currentItem = items[idx];
-    const updatedBin = payload.binName !== undefined ? payload.binName : currentItem.bin;
-
-    // Queue in Dexie offline database
-    let offlineQueued = false;
-    try {
-      await queueOfflineCount({
-        auditId: payload.auditId,
-        productId: payload.productId,
-        physicalCount: payload.physicalCount,
-        bin: updatedBin,
-        timestamp: new Date().toISOString(),
-        photoDataUrl: payload.photoDataUrl,
-        gps: payload.gps,
-      });
-      offlineQueued = true;
-    } catch (e) {
-      console.warn('Could not queue to Dexie:', e);
-    }
-
-    // Update in-memory / storage item
-    currentItem.physicalCount = payload.physicalCount;
-    currentItem.countSavedAt = new Date().toISOString();
-    currentItem.countedByUserId = currentUser?.id;
-    currentItem.countedByUserName = currentUser?.name;
-    currentItem.bin = updatedBin;
-
-    if (payload.photoDataUrl) {
-      currentItem.photoUrl = payload.photoDataUrl;
-      currentItem.photoCapturedAt = new Date().toISOString();
-      currentItem.photoGpsLat = payload.gps?.lat;
-      currentItem.photoGpsLng = payload.gps?.lng;
-      currentItem.photoGpsAccuracy = payload.gps?.accuracy;
-      currentItem.photoDistanceFromStoreM = payload.gps?.distanceM;
-      currentItem.photoWithinWindow = payload.gps?.withinWindow ?? true;
-      currentItem.photoStatus = 'pending'; // Requires photo approval!
-    }
-
-    // Calculate variance against cutoff
-    const { difference, differenceValue } = calculateAuditDiscrepancy(currentItem);
-    
-    // Check auto-approve business rule:
-    // If difference is within tolerance AND photo is already approved (or not required)
-    const withinTolerance =
-      Math.abs(difference) <= settings.autoApproveToleranceUnits &&
-      Math.abs(differenceValue) <= settings.autoApproveToleranceValue;
-
-    let autoApproved = false;
-    if (withinTolerance && currentItem.photoStatus === 'approved') {
-      currentItem.status = 'approved';
-      currentItem.approvedByName = 'Auto-Tolerance Engine';
-      currentItem.approvedAt = new Date().toISOString();
-      currentItem.approvalTier = 'auto_tolerance';
-      autoApproved = true;
-    } else {
-      currentItem.status = 'awaiting_approval';
-    }
-
-    items[idx] = currentItem;
-    writeStorage(STORAGE_KEYS.AUDIT_ITEMS, items);
-
-    await this.logAction({
-      action: 'COUNT_SAVED',
-      details: `Count ${payload.physicalCount} saved for ${currentItem.product.name} (Bin: ${updatedBin || 'None'}). Status: ${currentItem.status}`,
-      auditId: payload.auditId,
-      productId: payload.productId,
-      productName: currentItem.product.name,
+    const res = await fetch('/api/save-count', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
-
-    return { item: currentItem, autoApproved, offlineQueued };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Count save nahi hua. Internet check karo.');
+    return { item: data.item as AuditItem, autoApproved: !!data.autoApproved, offlineQueued: false };
   },
 
   async uploadPhoto(
     auditId: string,
     productId: string,
     photoDataUrl: string,
-    gps: {
-      lat: number;
-      lng: number;
-      accuracy: number;
-      distanceM: number;
-      withinWindow: boolean;
-    }
+    meta: { source: 'camera' | 'gallery'; gps?: { lat: number; lng: number; accuracy: number } }
   ): Promise<AuditItem> {
-    const items = readStorage<AuditItem[]>(STORAGE_KEYS.AUDIT_ITEMS, []);
-    const idx = items.findIndex((i) => i.auditId === auditId && i.productId === productId);
-    if (idx === -1) throw new Error('Item not found');
-
-    const item = items[idx];
-    item.photoUrl = photoDataUrl;
-    item.photoCapturedAt = new Date().toISOString();
-    item.photoGpsLat = gps.lat;
-    item.photoGpsLng = gps.lng;
-    item.photoGpsAccuracy = gps.accuracy;
-    item.photoDistanceFromStoreM = gps.distanceM;
-    item.photoWithinWindow = gps.withinWindow;
-    item.photoStatus = 'pending';
-
-    items[idx] = item;
-    writeStorage(STORAGE_KEYS.AUDIT_ITEMS, items);
-
-    await this.logAction({
-      action: 'PHOTO_UPLOADED',
-      details: `Photo uploaded for ${item.product.name}. Distance from store: ${gps.distanceM}m (Accuracy: ±${gps.accuracy}m)`,
-      auditId,
-      productId,
-      productName: item.product.name,
+    const res = await fetch('/api/photo-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId, productId, photoDataUrl, source: meta.source, gps: meta.gps }),
     });
-
-    return item;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Photo upload nahi hui. Internet check karo.');
+    return data.item as AuditItem;
   },
 
   // Back Office Approval Actions

@@ -180,6 +180,7 @@ export interface OfflineCountQueueItem {
   bin: string;
   timestamp: string;
   photoDataUrl?: string;
+  photoSource?: 'camera' | 'gallery';
   gps?: {
     lat: number;
     lng: number;

@@ -129,6 +129,9 @@ export default function App() {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+  useEffect(() => {
+  setSelectedAuditItem((prev) => (prev ? items.find((i) => i.id === prev.id) || prev : prev));
+}, [items]);
 
   // Sync Offline Queue
   const handleSyncNow = async () => {
@@ -183,13 +186,13 @@ export default function App() {
   };
 
   const handlePhotoSaved = async (
-    dataUrl: string,
-    gps: { lat: number; lng: number; accuracy: number; distanceM: number; withinWindow: boolean }
-  ) => {
-    if (!activeAudit || !selectedAuditItem) return;
-    await api.uploadPhoto(activeAudit.id, selectedAuditItem.productId, dataUrl, gps);
-    await refreshData();
-  };
+  dataUrl: string,
+  meta: { source: 'camera' | 'gallery'; gps?: { lat: number; lng: number; accuracy: number } }
+) => {
+  if (!activeAudit || !selectedAuditItem) return;
+  await api.uploadPhoto(activeAudit.id, selectedAuditItem.productId, dataUrl, meta);
+  await refreshData();
+};
 
   const handleSuggestNewBin = async (binName: string) => {
     if (!activeAudit || !selectedAuditItem) return;

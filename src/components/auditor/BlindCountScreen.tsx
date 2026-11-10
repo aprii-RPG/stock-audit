@@ -72,9 +72,11 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
         setSaveSuccessNotice(false);
         onNextProduct();
       }, 500);
+    } catch (e) {
+  alert(e instanceof Error ? e.message : 'Count save nahi hua.');
     } finally {
       setIsSaving(false);
-    }
+    } 
   };
 
   const handleAddBinSubmit = async (e: React.FormEvent) => {
