@@ -6,7 +6,6 @@ import {
   FileSpreadsheet,
   BarChart3,
   Settings,
-  FolderSync,
   History,
   ShieldCheck,
   PackageSearch,
@@ -17,7 +16,6 @@ export type BackOfficeTab =
   | 'audits'
   | 'photo_approval'
   | 'approvals'
-  | 'erp_adjustments'
   | 'bin_suggestions'
   | 'product_history'
   | 'reports'
@@ -56,12 +54,6 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
       icon: CheckSquare,
       badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null,
       badgeColor: 'bg-rose-500 text-white',
-    },
-    {
-      id: 'erp_adjustments' as BackOfficeTab,
-      label: 'ERP Adjustments',
-      icon: FolderSync,
-      badge: null,
     },
     {
       id: 'bin_suggestions' as BackOfficeTab,

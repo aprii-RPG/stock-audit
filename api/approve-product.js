@@ -12,14 +12,15 @@ const VALID_REASONS = new Set([
   "wrong_batch",
   "none",
 ]);
-const STORE_MANAGER_THRESHOLD = 100;
-
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   let client;
   try {
-    const user = await requireUser(req, res, ["back office", "admin"]);
+    const user = await requireUser(req, res);
     if (!user) return;
+    if (!["admin", "back office"].includes(String(user.role).trim().toLowerCase())) {
+      return res.status(403).json({ error: "Only admin and back-office users can approve products." });
+    }
 
     const { auditId, productId, reason = "none", reasonNote } = req.body || {};
     if (!auditId || !productId) {
@@ -37,8 +38,8 @@ export default async function handler(req, res) {
     await client.query("BEGIN");
     const result = await client.query(
       `SELECT i.id, i.snapshot_qty, i.sales_after_cutoff, i.returns_after_cutoff,
-              i.purchases_after_cutoff, i.physical_count, i.erp_adjustment_no,
-              p.name AS product_name, p.unit_price, a.name AS audit_name
+              i.purchases_after_cutoff, i.physical_count, p.name AS product_name,
+              a.name AS audit_name
          FROM audit_items i
          JOIN audits a ON a.id = i.audit_id
          JOIN products p ON p.id = i.product_id
@@ -52,52 +53,26 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "Audit item not found." });
     }
 
-    const hasCount = item.physical_count !== null && item.physical_count !== undefined;
-    const expectedQty =
-      (Number(item.snapshot_qty) || 0) -
-      (Number(item.sales_after_cutoff) || 0) +
-      (Number(item.returns_after_cutoff) || 0) +
-      (Number(item.purchases_after_cutoff) || 0);
-    const difference = hasCount ? Number(item.physical_count) - expectedQty : 0;
-    const differenceValue = Math.round(Math.abs(difference) * (Number(item.unit_price) || 0) * 100) / 100;
-    const approvalTier =
-      differenceValue > STORE_MANAGER_THRESHOLD ? "head_office" : "store_manager";
-    const adjustmentNo =
-      difference !== 0 && !item.erp_adjustment_no
-        ? `ADJ-${Math.floor(100000 + Math.random() * 900000)}`
-        : null;
-
-    await client.query(
+    const updatedStatus = await client.query(
       `UPDATE audit_items SET
          status = 'approved',
          difference_reason = $3,
-         difference_reason_note = $4,
-         approved_by_user_id = $5,
-         approved_by_name = $6,
+         approved_by_name = $4,
          approved_at = now(),
-         photo_status = 'approved',
-         approval_tier = $7,
-         erp_adjustment_no = COALESCE(erp_adjustment_no, $8),
-         erp_adjustment_posted_at = CASE
-           WHEN $8::text IS NOT NULL AND erp_adjustment_posted_at IS NULL THEN now()
-           ELSE erp_adjustment_posted_at
-         END
-       WHERE audit_id = $1 AND product_id = $2`,
-      [
-        auditId,
-        productId,
-        reason,
-        cleanReasonNote,
-        user.id,
-        user.name,
-        approvalTier,
-        adjustmentNo,
-      ]
+         photo_status = 'approved'
+       WHERE audit_id = $1 AND product_id = $2
+       RETURNING id, status`,
+      [auditId, productId, reason, user.name]
     );
+    if (updatedStatus.rowCount !== 1 || updatedStatus.rows[0].status !== "approved") {
+      throw new Error("Approval did not update the audit item status.");
+    }
 
     await logAction(client, user, {
       action: "PRODUCT_APPROVED",
-      details: `Approved by ${user.name}. Difference: ${difference} (${differenceValue.toFixed(2)}). Reason: ${reason}`,
+      details: `Product approved by ${user.name}. Reason: ${reason}${
+        cleanReasonNote ? `. Note: ${cleanReasonNote}` : ""
+      }`,
       auditId,
       auditName: item.audit_name,
       productId,

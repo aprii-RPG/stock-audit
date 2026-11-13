@@ -33,7 +33,6 @@ import { PhotoApprovalView } from './components/backoffice/PhotoApprovalView';
 import { ProductHistoryView } from './components/backoffice/ProductHistoryView';
 import { AuditPlannerModal } from './components/backoffice/AuditPlannerModal';
 import { ApprovalsView } from './components/backoffice/ApprovalsView';
-import { ERPAdjustmentsView } from './components/backoffice/ERPAdjustmentsView';
 import { BinSuggestionsView } from './components/backoffice/BinSuggestionsView';
 import { ReportsView } from './components/backoffice/ReportsView';
 import { AdminSettingsView } from './components/backoffice/AdminSettingsView';
@@ -558,10 +557,6 @@ export default function App() {
                     await handleApproveProduct(aId, pId, 'none');
                   }}
                 />
-              )}
-
-              {backOfficeTab === 'erp_adjustments' && (
-                <ERPAdjustmentsView audits={audits} items={items} stores={stores} />
               )}
 
               {backOfficeTab === 'bin_suggestions' && (
