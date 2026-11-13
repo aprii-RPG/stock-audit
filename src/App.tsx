@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
   Audit,
   AuditItem,
@@ -70,6 +70,40 @@ export default function App() {
   const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const auditItemsMap = useMemo(() => {
+    const grouped: Record<string, AuditItem[]> = {};
+    for (const audit of audits) grouped[audit.id] = [];
+    for (const item of items) {
+      grouped[item.auditId]?.push(item);
+    }
+    return grouped;
+  }, [audits, items]);
+
+  const activeAuditItems = useMemo(
+    () => (activeAudit ? auditItemsMap[activeAudit.id] || [] : []),
+    [activeAudit, auditItemsMap]
+  );
+
+  const existingBins = useMemo(
+    () => Array.from(new Set(products.map((product) => product.defaultBin).filter(Boolean))) as string[],
+    [products]
+  );
+
+  const { pendingPhotosCount, pendingApprovalsCount } = useMemo(() => {
+    let pendingPhotos = 0;
+    let pendingApprovals = 0;
+    for (const item of items) {
+      if (item.photoStatus === 'pending') pendingPhotos++;
+      if (item.status === 'awaiting_approval' || item.status === 'recount') pendingApprovals++;
+    }
+    return { pendingPhotosCount: pendingPhotos, pendingApprovalsCount: pendingApprovals };
+  }, [items]);
+
+  const pendingBinsCount = useMemo(
+    () => binSuggestions.filter((suggestion) => suggestion.status === 'pending').length,
+    [binSuggestions]
+  );
 
   // Refresh all state from API
   const refreshData = useCallback(async () => {
@@ -202,7 +236,7 @@ export default function App() {
 
   const handleNextProduct = () => {
     if (!activeAudit || !selectedAuditItem) return;
-    const currentAuditItems = items.filter((i) => i.auditId === activeAudit.id);
+    const currentAuditItems = auditItemsMap[activeAudit.id] || [];
     const currentIndex = currentAuditItems.findIndex((i) => i.id === selectedAuditItem.id);
     if (currentIndex >= 0 && currentIndex < currentAuditItems.length - 1) {
       setSelectedAuditItem(currentAuditItems[currentIndex + 1]);
@@ -300,26 +334,6 @@ export default function App() {
     );
   }
 
-  // Map audit items by auditId for quick access
-  const auditItemsMap: Record<string, AuditItem[]> = {};
-  audits.forEach((a) => {
-    auditItemsMap[a.id] = items.filter((i) => i.auditId === a.id);
-  });
-
-  const activeAuditItems = activeAudit ? items.filter((i) => i.auditId === activeAudit.id) : [];
-
-  // Existing unique bins for dropdown
-  const existingBins = Array.from(
-    new Set(products.map((p) => p.defaultBin).filter(Boolean))
-  ) as string[];
-
-  // Pending badge counters
-  const pendingPhotosCount = items.filter((i) => i.photoStatus === 'pending').length;
-  const pendingApprovalsCount = items.filter(
-    (i) => i.status === 'awaiting_approval' || i.status === 'recount'
-  ).length;
-  const pendingBinsCount = binSuggestions.filter((b) => b.status === 'pending').length;
-
   // Determine if in Auditor View or Back Office View
   const isAuditorView = currentUser.role === 'auditor' || forceAuditorMode;
 
@@ -374,7 +388,7 @@ export default function App() {
                   unsyncedCount={unsyncedCount}
                   onSelectAudit={(audit) => {
                     setActiveAudit(audit);
-                    const auditProducts = items.filter((i) => i.auditId === audit.id);
+                    const auditProducts = auditItemsMap[audit.id] || [];
                     setSelectedAuditItem(auditProducts[0] || null);
                     setAuditorTab('products');
                   }}
