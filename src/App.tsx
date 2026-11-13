@@ -369,6 +369,7 @@ export default function App() {
                 <MyAuditsScreen
                   currentUser={currentUser}
                   audits={audits}
+                  stores={stores}
                   auditItemsMap={auditItemsMap}
                   unsyncedCount={unsyncedCount}
                   onSelectAudit={(audit) => {

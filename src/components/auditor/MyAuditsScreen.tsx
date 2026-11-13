@@ -11,10 +11,13 @@ import {
   Layers,
 } from 'lucide-react';
 import type { Audit, AuditItem, User } from '../../types';
+import type { Store } from '../../types';
+import { AuditedProductsExportButton } from '../common/AuditedProductsExportButton';
 
 interface MyAuditsScreenProps {
   currentUser: User | null;
   audits: Audit[];
+  stores: Store[];
   auditItemsMap: Record<string, AuditItem[]>;
   unsyncedCount: number;
   onSelectAudit: (audit: Audit) => void;
@@ -23,6 +26,7 @@ interface MyAuditsScreenProps {
 export const MyAuditsScreen: React.FC<MyAuditsScreenProps> = ({
   currentUser,
   audits,
+  stores,
   auditItemsMap,
   unsyncedCount,
   onSelectAudit,
@@ -37,17 +41,25 @@ export const MyAuditsScreen: React.FC<MyAuditsScreenProps> = ({
     }
     return true;
   });
+  const visibleItems = visibleAudits.flatMap((audit) => auditItemsMap[audit.id] || []);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-black text-[#0B3D91] tracking-tight">
-          My Assigned Audits
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-          Select an active audit cycle to start physical counting and photo verification.
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-black text-[#0B3D91] tracking-tight">
+            My Assigned Audits
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+            Select an active audit cycle to start physical counting and photo verification.
+          </p>
+        </div>
+        <AuditedProductsExportButton
+          audits={visibleAudits}
+          items={visibleItems}
+          stores={stores}
+        />
       </div>
 
       {visibleAudits.length === 0 ? (
