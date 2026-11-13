@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { Audit, AuditItem, Store } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
+import { formatINR } from '../../utils/currency';
 import { DifferenceBadge } from '../common/DifferenceBadge';
 
 interface DashboardViewProps {
@@ -183,7 +184,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-black text-rose-600">
-              ${totalShortageValue.toFixed(2)}
+              {formatINR(totalShortageValue)}
             </span>
             <span className="text-xs font-bold text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded">
               ▼ Short ({totalShortageUnits} units)
@@ -206,7 +207,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-black text-[#1D5FD1]">
-              ${totalExcessValue.toFixed(2)}
+              {formatINR(totalExcessValue)}
             </span>
             <span className="text-xs font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded">
               ▲ Excess (+{totalExcessUnits} units)
@@ -311,10 +312,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <td className="py-4 px-4 text-right">
                     {row.shortageVal > 0 ? (
                       <span className="font-bold text-rose-600">
-                        -${row.shortageVal.toFixed(2)}
+                        -{formatINR(row.shortageVal)}
                       </span>
                     ) : (
-                      <span className="text-slate-400">$0.00</span>
+                      <span className="text-slate-400">{formatINR(0)}</span>
                     )}
                   </td>
 
@@ -322,10 +323,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <td className="py-4 px-4 text-right">
                     {row.excessVal > 0 ? (
                       <span className="font-bold text-[#1D5FD1]">
-                        +${row.excessVal.toFixed(2)}
+                        +{formatINR(row.excessVal)}
                       </span>
                     ) : (
-                      <span className="text-slate-400">$0.00</span>
+                      <span className="text-slate-400">{formatINR(0)}</span>
                     )}
                   </td>
 

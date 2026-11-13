@@ -13,6 +13,7 @@ import {
 import type { Product, ProductAuditHistoryEntry } from '../../types';
 import { api } from '../../services/api';
 import { DifferenceBadge } from '../common/DifferenceBadge';
+import { formatINR } from '../../utils/currency';
 
 interface ProductHistoryViewProps {
   products: Product[];
@@ -120,7 +121,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({ products
                   <span>•</span>
                   <span>Barcode: <strong className="font-mono">{prod.barcode}</strong></span>
                   <span>•</span>
-                  <span>Unit Price: <strong>${prod.unitPrice.toFixed(2)}</strong></span>
+                  <span>Unit Price: <strong>{formatINR(prod.unitPrice)}</strong></span>
                 </div>
               </div>
 
@@ -174,7 +175,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({ products
                 Net Value Lost
               </span>
               <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
-                ${historyData.summary.totalValueLost.toFixed(2)}
+                {formatINR(historyData.summary.totalValueLost)}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">Net inventory write-off</p>
             </div>

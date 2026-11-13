@@ -166,7 +166,7 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Auto-Approve Tolerance Value ($)
+                Auto-Approve Tolerance Value (INR)
               </label>
               <input
                 type="number"
@@ -186,7 +186,7 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Store Manager Approval Tier Limit ($)
+                Store Manager Approval Tier Limit (INR)
               </label>
               <input
                 type="number"
@@ -197,13 +197,13 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
                 className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-blue-200 min-h-[44px]"
               />
               <span className="text-[11px] text-slate-500 mt-1 block">
-                Variances up to this dollar amount can be approved locally.
+                Variances up to this rupee amount can be approved locally.
               </span>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Head Office (HO) Escalation Limit ($)
+                Head Office (HO) Escalation Limit (INR)
               </label>
               <input
                 type="number"

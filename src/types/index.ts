@@ -165,9 +165,9 @@ export interface AuditLogEntry {
 
 export interface SystemSettings {
   autoApproveToleranceUnits: number; // e.g. 1 unit
-  autoApproveToleranceValue: number; // e.g. $10
-  storeManagerApprovalThreshold: number; // up to $100
-  hoApprovalThreshold: number; // over $100 requires HO
+  autoApproveToleranceValue: number; // e.g. INR 10
+  storeManagerApprovalThreshold: number; // e.g. INR 100
+  hoApprovalThreshold: number; // e.g. INR 500 requires HO
   defaultGeofenceRadiusMeters: number;
   reasons: { code: DifferenceReason; label: string; description: string }[];
 }

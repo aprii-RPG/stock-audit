@@ -27,6 +27,7 @@ import type {
   User,
 } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
+import { formatINR } from '../../utils/currency';
 import { DifferenceBadge } from '../common/DifferenceBadge';
 import { StatusChip } from '../common/StatusChip';
 
@@ -287,7 +288,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   <th className="py-3 px-3 text-right">Sales Post-Cutoff</th>
                   <th className="py-3 px-3 text-right">Physical</th>
                   <th className="py-3 px-3 text-center">Final Difference</th>
-                  <th className="py-3 px-3 text-right">Value ($)</th>
+                  <th className="py-3 px-3 text-right">Value (INR)</th>
                   <th className="py-3 px-3 text-center">Status</th>
                 </tr>
               </thead>
@@ -373,11 +374,11 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                       <td className="py-3 px-3 text-right font-mono font-semibold">
                         {hasPhysical ? (
                           disc.difference === 0 ? (
-                            <span className="text-slate-400">$0.00</span>
+                            <span className="text-slate-400">{formatINR(0)}</span>
                           ) : disc.direction === 'excess' ? (
-                            <span className="text-[#1D5FD1]">+${disc.differenceValue.toFixed(2)}</span>
+                            <span className="text-[#1D5FD1]">+{formatINR(disc.differenceValue)}</span>
                           ) : (
-                            <span className="text-rose-600">-${disc.differenceValue.toFixed(2)}</span>
+                            <span className="text-rose-600">-{formatINR(disc.differenceValue)}</span>
                           )
                         ) : (
                           <span className="text-slate-400">—</span>

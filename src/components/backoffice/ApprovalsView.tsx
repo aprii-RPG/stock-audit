@@ -14,6 +14,7 @@ import type { Audit, AuditItem, Store, SystemSettings, User } from '../../types'
 import { calculateAuditDiscrepancy } from '../../services/api';
 import { DifferenceBadge } from '../common/DifferenceBadge';
 import { StatusChip } from '../common/StatusChip';
+import { formatINR } from '../../utils/currency';
 
 interface ApprovalsViewProps {
   audits: Audit[];
@@ -87,7 +88,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
             Auto-Tolerance Engine
           </span>
           <p className="font-bold text-[#1D5FD1] mt-0.5">
-            Within ±{settings.autoApproveToleranceUnits} Unit &amp; ±${settings.autoApproveToleranceValue}
+            Within ±{settings.autoApproveToleranceUnits} Unit &amp; ±{formatINR(settings.autoApproveToleranceValue)}
           </p>
           <p className="text-slate-500 text-[11px] mt-0.5">Auto-approved without manual intervention</p>
         </div>
@@ -97,7 +98,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
             Tier 1: Store Manager
           </span>
           <p className="font-bold text-amber-900 mt-0.5">
-            Variances up to ${settings.storeManagerApprovalThreshold}
+            Variances up to {formatINR(settings.storeManagerApprovalThreshold)}
           </p>
           <p className="text-slate-500 text-[11px] mt-0.5">Approved by Branch In-charge</p>
         </div>
@@ -107,7 +108,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
             Tier 2: Head Office (HO)
           </span>
           <p className="font-bold text-rose-900 mt-0.5">
-            Variances over ${settings.storeManagerApprovalThreshold}
+            Variances over {formatINR(settings.storeManagerApprovalThreshold)}
           </p>
           <p className="text-slate-500 text-[11px] mt-0.5">Escalated for Head Office review</p>
         </div>
@@ -134,7 +135,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
               : 'bg-white text-amber-800 border border-amber-200 hover:bg-amber-50'
           }`}
         >
-          Branch Manager Tier (≤${settings.storeManagerApprovalThreshold})
+          Branch Manager Tier (≤{formatINR(settings.storeManagerApprovalThreshold)})
         </button>
 
         <button
@@ -145,7 +146,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
               : 'bg-white text-rose-800 border border-rose-200 hover:bg-rose-50'
           }`}
         >
-          HO Escalation (&gt;${settings.storeManagerApprovalThreshold})
+          HO Escalation (&gt;{formatINR(settings.storeManagerApprovalThreshold)})
         </button>
 
         <button
@@ -219,7 +220,7 @@ export const ApprovalsView: React.FC<ApprovalsViewProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                      ${disc.differenceValue.toFixed(2)}
+                      {formatINR(disc.differenceValue)}
                     </td>
 
                     <td className="py-3.5 px-4">

@@ -12,6 +12,7 @@ import {
 import type { Audit, AuditItem, Store } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
 import { DifferenceBadge } from '../common/DifferenceBadge';
+import { formatINR } from '../../utils/currency';
 
 interface ERPAdjustmentsViewProps {
   audits: Audit[];
@@ -111,7 +112,7 @@ export const ERPAdjustmentsView: React.FC<ERPAdjustmentsViewProps> = ({
             Total Adjustment Value
           </span>
           <p className="text-2xl font-black text-slate-900 mt-1">
-            ${totalAdjustmentValue.toFixed(2)}
+            {formatINR(totalAdjustmentValue)}
           </p>
           <p className="text-xs text-slate-500 mt-0.5">Combined financial impact</p>
         </div>
@@ -175,7 +176,7 @@ export const ERPAdjustmentsView: React.FC<ERPAdjustmentsViewProps> = ({
                       <DifferenceBadge difference={disc.difference} size="sm" />
                     </td>
                     <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                      ${disc.differenceValue.toFixed(2)}
+                      {formatINR(disc.differenceValue)}
                     </td>
                     <td className="py-3.5 px-4 capitalize text-slate-700">
                       {item.differenceReason ? item.differenceReason.replace(/_/g, ' ') : 'Balanced'}

@@ -13,6 +13,7 @@ import type { Audit, AuditItem, Product, Store, User } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
 import { DifferenceBadge } from '../common/DifferenceBadge';
 import { AuditedProductsExportButton } from '../common/AuditedProductsExportButton';
+import { formatINR } from '../../utils/currency';
 
 interface ReportsViewProps {
   products: Product[];
@@ -60,14 +61,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   );
 
   const exportNoBinReport = () => {
-    const headers = ['Product Code', 'Medicine Name', 'Pack Size', 'Company', 'Category', 'Unit Price ($)'];
+    const headers = ['Product Code', 'Medicine Name', 'Pack Size', 'Company', 'Category', 'Unit Price (INR)'];
     const rows = productsWithoutBin.map((p) => [
       p.code,
       p.name,
       p.pack,
       p.company,
       p.category,
-      p.unitPrice,
+      formatINR(p.unitPrice),
     ]);
     downloadCSV('StockAudit_Products_Without_Bin', headers, rows);
   };
@@ -116,11 +117,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   });
 
   const exportReasonLossReport = () => {
-    const headers = ['Reason Code', 'Discrepancy Incidents', 'Total Financial Loss ($)'];
+    const headers = ['Reason Code', 'Discrepancy Incidents', 'Total Financial Loss (INR)'];
     const rows = Object.entries(reasonMap).map(([k, v]) => [
       k.replace(/_/g, ' ').toUpperCase(),
       v.count,
-      v.totalLoss.toFixed(2),
+      formatINR(v.totalLoss),
     ]);
     downloadCSV('StockAudit_Reason_Wise_Loss', headers, rows);
   };
@@ -182,12 +183,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     .sort((a, b) => b.shortCount - a.shortCount);
 
   const exportRepeatProblems = () => {
-    const headers = ['Medicine Name', 'Company', 'Shortage Incidents', 'Total Lost Value ($)'];
+    const headers = ['Medicine Name', 'Company', 'Shortage Incidents', 'Total Lost Value (INR)'];
     const rows = repeatProblemProducts.map((p) => [
       p.product.name,
       p.product.company,
       p.shortCount,
-      p.totalLost.toFixed(2),
+      formatINR(p.totalLost),
     ]);
     downloadCSV('StockAudit_Repeat_Problem_Products', headers, rows);
   };
@@ -307,7 +308,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     <td className="py-3 px-3 text-slate-600">{p.pack}</td>
                     <td className="py-3 px-3 text-slate-700">{p.company}</td>
                     <td className="py-3 px-3">{p.category}</td>
-                    <td className="py-3 px-3 text-right font-mono font-bold">${p.unitPrice.toFixed(2)}</td>
+                    <td className="py-3 px-3 text-right font-mono font-bold">{formatINR(p.unitPrice)}</td>
                     <td className="py-3 px-3 text-center">
                       <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900">
                         Needs Bin
@@ -433,7 +434,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 </div>
                 <div className="text-right">
                   <span className="text-base font-black text-rose-600 font-mono">
-                    -${stats.totalLoss.toFixed(2)}
+                    -{formatINR(stats.totalLoss)}
                   </span>
                   <span className="block text-[10px] text-slate-400 uppercase font-semibold">
                     Net Shortage
@@ -546,7 +547,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right font-mono font-bold text-rose-600">
-                      -${p.totalLost.toFixed(2)}
+                      -{formatINR(p.totalLost)}
                     </td>
                     <td className="py-3 px-3 text-right">
                       <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-rose-600 text-white">
