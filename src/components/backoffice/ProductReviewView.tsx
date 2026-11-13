@@ -406,7 +406,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
         {/* Side Panel: opens when row is selected */}
         {selectedItem && (
-          <div className="w-full lg:w-96 bg-white rounded-2xl border border-blue-100 shadow-xl p-5 space-y-4 shrink-0 animate-in fade-in slide-in-from-right-4">
+          <div className="w-full lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-96 lg:self-start lg:overflow-y-auto bg-white rounded-2xl border border-blue-100 shadow-xl p-5 space-y-4 shrink-0 animate-in fade-in slide-in-from-right-4">
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#1D5FD1] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
