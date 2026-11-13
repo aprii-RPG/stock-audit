@@ -233,12 +233,11 @@ export default function App() {
 
   // Back Office Approval Actions
   const handleApproveProduct = async (
-    auditId: string,
-    productId: string,
+    itemId: string,
     reason: DifferenceReason,
     note?: string
   ) => {
-    const approvedItem = await api.approveProduct(auditId, productId, reason, note);
+    const approvedItem = await api.approveProduct(itemId, reason, note);
     setItems((currentItems) =>
       currentItems.map((item) => (item.id === approvedItem.id ? approvedItem : item))
     );

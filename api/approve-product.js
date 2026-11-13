@@ -22,9 +22,9 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Only admin and back-office users can approve products." });
     }
 
-    const { auditId, productId, reason = "none", reasonNote } = req.body || {};
-    if (!auditId || !productId) {
-      return res.status(400).json({ error: "auditId and productId are required." });
+    const { itemId, auditId, productId, reason = "none", reasonNote } = req.body || {};
+    if (!itemId && (!auditId || !productId)) {
+      return res.status(400).json({ error: "itemId is required." });
     }
     if (!VALID_REASONS.has(reason)) {
       return res.status(400).json({ error: "Invalid difference reason." });
@@ -39,13 +39,13 @@ export default async function handler(req, res) {
     const result = await client.query(
       `SELECT i.id, i.snapshot_qty, i.sales_after_cutoff, i.returns_after_cutoff,
               i.purchases_after_cutoff, i.physical_count, p.name AS product_name,
-              a.name AS audit_name
+              a.name AS audit_name, i.audit_id, i.product_id
          FROM audit_items i
          JOIN audits a ON a.id = i.audit_id
          JOIN products p ON p.id = i.product_id
-        WHERE i.audit_id = $1 AND i.product_id = $2
+        WHERE ${itemId ? "i.id = $1" : "i.audit_id = $1 AND i.product_id = $2"}
         FOR UPDATE OF i`,
-      [auditId, productId]
+      itemId ? [itemId] : [auditId, productId]
     );
     const item = result.rows[0];
     if (!item) {
@@ -56,13 +56,13 @@ export default async function handler(req, res) {
     const updatedStatus = await client.query(
       `UPDATE audit_items SET
          status = 'approved',
-         difference_reason = $3,
-         approved_by_name = $4,
+        difference_reason = $2,
+        approved_by_name = $3,
          approved_at = now(),
          photo_status = 'approved'
-       WHERE audit_id = $1 AND product_id = $2
+      WHERE id = $1
        RETURNING id, status`,
-      [auditId, productId, reason, user.name]
+      [item.id, reason, user.name]
     );
     if (updatedStatus.rowCount !== 1 || updatedStatus.rows[0].status !== "approved") {
       throw new Error("Approval did not update the audit item status.");
@@ -73,15 +73,15 @@ export default async function handler(req, res) {
       details: `Product approved by ${user.name}. Reason: ${reason}${
         cleanReasonNote ? `. Note: ${cleanReasonNote}` : ""
       }`,
-      auditId,
+      auditId: item.audit_id,
       auditName: item.audit_name,
-      productId,
+      productId: item.product_id,
       productName: item.product_name,
     });
 
     const updated = await client.query(
-      `${ITEM_SELECT} WHERE i.audit_id = $1 AND i.product_id = $2`,
-      [auditId, productId]
+      `${ITEM_SELECT} WHERE i.id = $1`,
+      [item.id]
     );
     await client.query("COMMIT");
     return res.status(200).json({ item: toAuditItem(updated.rows[0], false) });

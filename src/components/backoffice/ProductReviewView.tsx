@@ -40,8 +40,7 @@ interface ProductReviewViewProps {
   users: User[];
   cutoffBillsMap: Record<string, CutoffBillItem[]>;
   onApproveProduct: (
-    auditId: string,
-    productId: string,
+    itemId: string,
     reason: DifferenceReason,
     note?: string
   ) => Promise<AuditItem>;
@@ -120,8 +119,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     setActionError(null);
     try {
       const approvedItem = await onApproveProduct(
-        selectedItem.auditId,
-        selectedItem.productId,
+        selectedItem.id,
         selectedReason,
         reasonNote
       );

@@ -363,15 +363,14 @@ export const api = {
 
   // Back Office Approval Actions
   async approveProduct(
-    auditId: string,
-    productId: string,
+    itemId: string,
     reason: DifferenceReason = 'none',
     reasonNote?: string
   ): Promise<AuditItem> {
     const res = await fetch('/api/approve-product', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auditId, productId, reason, reasonNote }),
+      body: JSON.stringify({ itemId, reason, reasonNote }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Could not approve this audit item.');
