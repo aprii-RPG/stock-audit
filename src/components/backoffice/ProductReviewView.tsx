@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Layers,
   Search,
@@ -43,7 +43,7 @@ interface ProductReviewViewProps {
     productId: string,
     reason: DifferenceReason,
     note?: string
-  ) => Promise<void>;
+  ) => Promise<AuditItem>;
   onSendToRecount: (
     auditId: string,
     productId: string,
@@ -83,6 +83,19 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
   const activeAudit = audits.find((a) => a.id === selectedAuditId) || audits[0];
 
+  useEffect(() => {
+    setSelectedItem(null);
+    setShowRecountForm(false);
+    setActionError(null);
+    setActionSuccess(null);
+  }, [activeAudit?.id]);
+
+  useEffect(() => {
+    setSelectedItem((current) =>
+      current ? items.find((item) => item.id === current.id) || current : current
+    );
+  }, [items]);
+
   // Sync item selection
   const handleSelectRow = (item: AuditItem) => {
     setSelectedItem(item);
@@ -101,11 +114,17 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   };
 
   const handleApprove = async () => {
-    if (!selectedItem || !activeAudit) return;
+    if (!selectedItem) return;
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await onApproveProduct(activeAudit.id, selectedItem.productId, selectedReason, reasonNote);
+      const approvedItem = await onApproveProduct(
+        selectedItem.auditId,
+        selectedItem.productId,
+        selectedReason,
+        reasonNote
+      );
+      setSelectedItem(approvedItem);
       setActionSuccess('Product discrepancy verified and approved. ERP adjustment updated.');
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (e: unknown) {
@@ -117,7 +136,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   };
 
   const handleRecount = async () => {
-    if (!selectedItem || !activeAudit) return;
+    if (!selectedItem) return;
     if (!recountAssigneeId) {
       setActionError('Please select a recount assignee.');
       return;
@@ -132,7 +151,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     setIsSubmitting(true);
     setActionError(null);
     try {
-      await onSendToRecount(activeAudit.id, selectedItem.productId, recountAssigneeId, recountNote);
+      await onSendToRecount(selectedItem.auditId, selectedItem.productId, recountAssigneeId, recountNote);
       setActionSuccess('Recount order successfully dispatched to auditor.');
       setShowRecountForm(false);
       setTimeout(() => setActionSuccess(null), 3000);
@@ -170,8 +189,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   });
 
   const selectedItemBills: CutoffBillItem[] =
-    selectedItem && activeAudit
-      ? cutoffBillsMap[`${activeAudit.id}_${selectedItem.productId}`] || []
+    selectedItem
+      ? cutoffBillsMap[`${selectedItem.auditId}_${selectedItem.productId}`] || []
       : [];
 
   const selectedItemDisc = selectedItem ? calculateAuditDiscrepancy(selectedItem) : null;
@@ -652,12 +671,18 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
                 <button
                   type="button"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || selectedItem.status === 'approved'}
                   onClick={handleApprove}
-                  className="flex-1 py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/20 min-h-[46px]"
+                  className="flex-1 py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-700 disabled:cursor-not-allowed text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-700/20 min-h-[46px]"
                 >
                   <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                  <span>Approve</span>
+                  <span>
+                    {isSubmitting
+                      ? 'Approving...'
+                      : selectedItem.status === 'approved'
+                      ? 'Approved'
+                      : 'Approve'}
+                  </span>
                 </button>
               </div>
             )}

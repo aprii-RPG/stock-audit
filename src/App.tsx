@@ -250,8 +250,11 @@ export default function App() {
     reason: DifferenceReason,
     note?: string
   ) => {
-    await api.approveProduct(auditId, productId, reason, note);
-    await refreshData();
+    const approvedItem = await api.approveProduct(auditId, productId, reason, note);
+    setItems((currentItems) =>
+      currentItems.map((item) => (item.id === approvedItem.id ? approvedItem : item))
+    );
+    return approvedItem;
   };
 
   const handleSendToRecount = async (
