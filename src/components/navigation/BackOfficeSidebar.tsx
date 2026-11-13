@@ -78,14 +78,14 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-[#0B3D91] text-white flex-col shrink-0 border-r border-blue-900 hidden lg:flex select-none">
+    <aside className="h-full w-64 bg-[#0B3D91] text-white flex-col shrink-0 border-r border-blue-900 hidden lg:flex select-none">
       <div className="p-4 border-b border-blue-900/60">
         <p className="text-[11px] font-bold text-blue-300 uppercase tracking-wider">
           Management Console
         </p>
       </div>
 
-      <nav className="p-3 space-y-1 overflow-y-auto flex-1">
+      <nav className="min-h-0 p-3 space-y-1 overflow-y-auto flex-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;

@@ -328,7 +328,7 @@ export default function App() {
   const isAuditorView = currentUser.role === 'auditor' || forceAuditorMode;
 
   return (
-    <div className="min-h-screen bg-[#F7FAFF] flex flex-col antialiased">
+    <div className="h-screen overflow-hidden bg-[#F7FAFF] flex flex-col antialiased">
       {/* Top Bar with Store Selector & User profile */}
       <TopBar
         currentUser={currentUser}
@@ -349,7 +349,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* If Back Office / Admin view on desktop, render left sidebar */}
         {!isAuditorView && (
           <BackOfficeSidebar
@@ -360,7 +360,7 @@ export default function App() {
         )}
 
         {/* Dynamic Screen Viewport */}
-        <main className="flex-1 overflow-y-auto pb-20 sm:pb-6">
+        <main className="flex-1 min-h-0 overflow-y-auto pb-20 sm:pb-6">
           {/* ========================================================= */}
           {/* AUDITOR FIELD VIEWS (Responsive: Phone, Tablet, Desktop)   */}
           {/* ========================================================= */}
