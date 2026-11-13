@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   RotateCcw,
   Camera,
-  MapPin,
   Clock,
   Lock,
   Receipt,
@@ -403,7 +402,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
             {/* Count Photo Preview & GPS metadata */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Auditor Photo & GPS Verification
+                Auditor Photo
               </label>
               {selectedItem.photoUrl ? (
                 <div className="relative rounded-xl overflow-hidden border border-blue-200 bg-slate-900 text-white">
@@ -416,13 +415,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                     <p className="font-bold flex items-center gap-1">
                       <Camera className="w-3 h-3 text-blue-300" />
                       <span>By {selectedItem.countedByUserName || '—'}</span>
-                    </p>
-                    <p className="text-slate-300 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-emerald-400" />
-                      <span>
-                        Dist: {selectedItem.photoDistanceFromStoreM ?? '—'}m from store (±
-                        {selectedItem.photoGpsAccuracy ?? '—'}m)
-                      </span>
                     </p>
                   </div>
                 </div>

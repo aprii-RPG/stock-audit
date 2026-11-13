@@ -526,7 +526,6 @@ export default function App() {
               {backOfficeTab === 'photo_approval' && (
                 <PhotoApprovalView
                   audits={audits}
-                  stores={stores}
                   items={items}
                   onApprovePhoto={handleApprovePhoto}
                   onRejectPhoto={handleRejectPhoto}
@@ -602,7 +601,6 @@ export default function App() {
         <PhotoCaptureModal
           audit={activeAudit}
           item={selectedAuditItem}
-          store={stores.find((s) => s.id === activeAudit.storeId)}
           onPhotoSaved={handlePhotoSaved}
           onClose={() => setShowPhotoModal(false)}
         />

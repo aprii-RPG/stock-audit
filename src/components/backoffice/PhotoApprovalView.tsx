@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import {
   Camera,
-  MapPin,
   Clock,
-  ShieldAlert,
   ShieldCheck,
   CheckCircle2,
   XCircle,
@@ -13,11 +11,10 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react';
-import type { Audit, AuditItem, Store } from '../../types';
+import type { Audit, AuditItem } from '../../types';
 
 interface PhotoApprovalViewProps {
   audits: Audit[];
-  stores: Store[];
   items: AuditItem[];
   onApprovePhoto: (auditId: string, productId: string) => Promise<void>;
   onRejectPhoto: (auditId: string, productId: string, reason: string) => Promise<void>;
@@ -25,12 +22,11 @@ interface PhotoApprovalViewProps {
 
 export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
   audits,
-  stores,
   items,
   onApprovePhoto,
   onRejectPhoto,
 }) => {
-  const [filterState, setFilterState] = useState<'pending' | 'flagged' | 'all'>('pending');
+  const [filterState, setFilterState] = useState<'pending' | 'all'>('pending');
   const [selectedPhotoItem, setSelectedPhotoItem] = useState<AuditItem | null>(null);
   const [rejectingItem, setRejectingItem] = useState<AuditItem | null>(null);
   const [rejectReason, setRejectReason] = useState('Product label or batch number blurred/illegible');
@@ -40,16 +36,8 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
   const itemsWithPhotos = items.filter((i) => i.photoUrl);
 
   const filteredPhotos = itemsWithPhotos.filter((item) => {
-    const audit = audits.find((a) => a.id === item.auditId);
-    const store = stores.find((s) => s.id === audit?.storeId);
-    const geofence = store?.geofenceRadiusMeters || 150;
-    const isOutside = item.photoDistanceFromStoreM !== undefined && item.photoDistanceFromStoreM > geofence;
-
     if (filterState === 'pending') {
       return item.photoStatus === 'pending';
-    }
-    if (filterState === 'flagged') {
-      return isOutside;
     }
     return true;
   });
@@ -75,10 +63,10 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-[#0B3D91] tracking-tight">
-            Photo Verification & Geofence Audit
+            Photo Verification
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Review live camera captures, GPS proximity against geofences, and timestamp compliance.
+            Review shelf photos submitted by auditors.
           </p>
         </div>
 
@@ -93,17 +81,6 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
             }`}
           >
             Pending Review ({itemsWithPhotos.filter((i) => i.photoStatus === 'pending').length})
-          </button>
-
-          <button
-            onClick={() => setFilterState('flagged')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition min-h-[38px] ${
-              filterState === 'flagged'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Flagged Outside Radius
           </button>
 
           <button
@@ -139,19 +116,11 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredPhotos.map((item) => {
             const audit = audits.find((a) => a.id === item.auditId);
-            const store = stores.find((s) => s.id === audit?.storeId);
-            const geofence = store?.geofenceRadiusMeters || 150;
-            const dist = item.photoDistanceFromStoreM;
-            const isOutside = dist !== undefined && dist > geofence;
 
             return (
               <div
                 key={item.id}
-                className={`bg-white rounded-2xl overflow-hidden border shadow-sm transition hover:shadow-md flex flex-col ${
-                  isOutside
-                    ? 'border-rose-300 ring-2 ring-rose-200/50'
-                    : 'border-blue-100 hover:border-blue-300'
-                }`}
+                className="bg-white rounded-2xl overflow-hidden border border-blue-100 shadow-sm transition hover:shadow-md hover:border-blue-300 flex flex-col"
               >
                 {/* Photo Preview Container */}
                 <div
@@ -163,14 +132,6 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
                     alt={item.product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   />
-
-                  {/* Red Geofence Warning Flag Badge */}
-                  {isOutside && (
-                    <div className="absolute top-2.5 left-2.5 bg-rose-600 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1.5 animate-pulse">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      <span>FLAGGED: {dist}m from store (&gt;{geofence}m radius)</span>
-                    </div>
-                  )}
 
                   {/* Status Overlay */}
                   <div className="absolute top-2.5 right-2.5">
@@ -211,7 +172,7 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
                     </p>
                   </div>
 
-                  {/* Metadata Chips: Auditor, Time, Distance from store */}
+                  {/* Metadata Chips: Auditor and time */}
                   <div className="bg-[#F7FAFF] p-2.5 rounded-xl border border-blue-100 text-xs space-y-1">
                     <div className="flex items-center justify-between text-slate-600">
                       <span className="font-semibold">Auditor:</span>
@@ -235,21 +196,6 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span className="font-semibold flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-blue-500" />
-                        <span>Distance:</span>
-                      </span>
-                      <span
-                        className={`font-mono font-bold ${
-                          isOutside ? 'text-rose-600' : 'text-emerald-700'
-                        }`}
-                      >
-                        {dist === undefined
-                          ? 'Distance not recorded'
-                          : `${dist} meters ${isOutside ? '(Outside)' : '(Within radius)'}`}
-                      </span>
-                    </div>
                   </div>
 
                   {/* Actions: Approve and Reject (with reason) */}
@@ -301,9 +247,6 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
                   <option value="Product label or batch number blurred/illegible">
                     Product label or batch number blurred/illegible
                   </option>
-                  <option value="Photo taken outside approved store geofence radius">
-                    Photo taken outside approved store geofence radius
-                  </option>
                   <option value="Wrong medicine box photographed">
                     Wrong medicine box photographed
                   </option>
@@ -341,8 +284,7 @@ export const PhotoApprovalView: React.FC<PhotoApprovalViewProps> = ({
               <div>
                 <h4 className="text-sm font-bold">{selectedPhotoItem.product.name}</h4>
                 <p className="text-xs text-slate-400">
-                  Auditor: {selectedPhotoItem.countedByUserName || '—'} •{' '}
-                  {selectedPhotoItem.photoDistanceFromStoreM}m from store
+                  Auditor: {selectedPhotoItem.countedByUserName || '—'}
                 </p>
               </div>
               <button

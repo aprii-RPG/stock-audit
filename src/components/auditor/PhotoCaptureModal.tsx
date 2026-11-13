@@ -3,15 +3,13 @@ import {
   Camera,
   MapPin,
   Clock,
-  ShieldCheck,
   AlertCircle,
   X,
   RotateCcw,
   Check,
   Image as ImageIcon,
 } from 'lucide-react';
-import type { Audit, AuditItem, Store } from '../../types';
-import { calculateDistanceMeters } from '../../services/api';
+import type { Audit, AuditItem } from '../../types';
 
 export type PhotoSource = 'camera' | 'gallery';
 export interface PhotoMeta {
@@ -22,7 +20,6 @@ export interface PhotoMeta {
 interface PhotoCaptureModalProps {
   audit: Audit;
   item: AuditItem;
-  store?: Store;
   onPhotoSaved: (dataUrl: string, meta: PhotoMeta) => Promise<void>;
   onClose: () => void;
 }
@@ -55,7 +52,6 @@ function canvasToJpeg(canvas: HTMLCanvasElement): string {
 export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   audit,
   item,
-  store,
   onPhotoSaved,
   onClose,
 }) => {
@@ -135,13 +131,6 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
     return () => clearInterval(t);
   }, []);
 
-  const hasStoreLocation = Boolean(store && (store.latitude !== 0 || store.longitude !== 0));
-  const distanceM =
-    gps && store && hasStoreLocation
-      ? calculateDistanceMeters(gps.lat, gps.lng, store.latitude, store.longitude)
-      : null;
-  const geofenceRadius = store?.geofenceRadiusMeters || 150;
-  const isWithinGeofence = distanceM !== null && distanceM <= geofenceRadius;
   const timeText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const handleCapture = () => {
@@ -225,25 +214,6 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             <span>{gps ? `GPS: ±${gps.accuracy}m` : gpsError ? 'GPS: nahi mila' : 'GPS dhoond raha hai...'}</span>
           </span>
 
-          <span
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold border ${
-              distanceM === null
-                ? 'bg-slate-800 text-slate-300 border-slate-700'
-                : isWithinGeofence
-                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600/70'
-                : 'bg-rose-950/80 text-rose-300 border-rose-600/70'
-            }`}
-          >
-            <ShieldCheck className="w-3 h-3 shrink-0" />
-            <span>
-              {!hasStoreLocation
-                ? 'Store ki location set nahi hai'
-                : distanceM === null
-                ? 'Doori nahi pata'
-                : `${distanceM}m store se (${isWithinGeofence ? 'Radius ke andar' : 'Radius ke bahar'})`}
-            </span>
-          </span>
-
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800 text-slate-200 border border-slate-700 font-medium">
             <Clock className="w-3 h-3 text-amber-400 shrink-0" />
             <span>{timeText}</span>
@@ -257,7 +227,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
               <div className="absolute top-3 left-3 right-3 bg-black/70 text-white text-[10px] px-2 py-1 rounded">
                 {captured.source === 'camera'
                   ? 'Live camera photo'
-                  : 'Gallery se chuni gayi photo: location verify nahi hogi, Back Office ko dikhega'}
+                  : 'Gallery photo selected'}
               </div>
             </div>
           ) : cameraError ? (
