@@ -368,48 +368,14 @@ export const api = {
     reason: DifferenceReason = 'none',
     reasonNote?: string
   ): Promise<AuditItem> {
-    const currentUser = await this.getCurrentUser();
-    const items = readStorage<AuditItem[]>(STORAGE_KEYS.AUDIT_ITEMS, []);
-    const idx = items.findIndex((i) => i.auditId === auditId && i.productId === productId);
-    if (idx === -1) throw new Error('Item not found');
-
-    const item = items[idx];
-    const discrepancy = calculateAuditDiscrepancy(item);
-
-    item.status = 'approved';
-    item.differenceReason = reason;
-    item.differenceReasonNote = reasonNote;
-    item.approvedByUserId = currentUser?.id;
-    item.approvedByName = currentUser?.name || 'Back Office Reviewer';
-    item.approvedAt = new Date().toISOString();
-    item.photoStatus = 'approved'; // Approving product also validates its photo
-
-    // Determine approval tier
-    const settings = await this.getAdminSettings();
-    if (discrepancy.differenceValue > settings.storeManagerApprovalThreshold) {
-      item.approvalTier = 'head_office';
-    } else {
-      item.approvalTier = 'store_manager';
-    }
-
-    // Auto-generate ERP adjustment number if difference != 0
-    if (discrepancy.difference !== 0 && !item.erpAdjustmentNo) {
-      item.erpAdjustmentNo = `ADJ-${Math.floor(100000 + Math.random() * 900000)}`;
-      item.erpAdjustmentPostedAt = new Date().toISOString();
-    }
-
-    items[idx] = item;
-    writeStorage(STORAGE_KEYS.AUDIT_ITEMS, items);
-
-    await this.logAction({
-      action: 'PRODUCT_APPROVED',
-      details: `Approved by ${currentUser?.name}. Diff: ${discrepancy.difference} (${discrepancy.direction}) Value: $${discrepancy.differenceValue}. Reason: ${reason}`,
-      auditId,
-      productId,
-      productName: item.product.name,
+    const res = await fetch('/api/approve-product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId, productId, reason, reasonNote }),
     });
-
-    return item;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not approve this audit item.');
+    return data.item as AuditItem;
   },
 
   async sendToRecount(
