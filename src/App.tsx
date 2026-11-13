@@ -90,14 +90,12 @@ export default function App() {
     [products]
   );
 
-  const { pendingPhotosCount, pendingApprovalsCount } = useMemo(() => {
-    let pendingPhotos = 0;
+  const pendingApprovalsCount = useMemo(() => {
     let pendingApprovals = 0;
     for (const item of items) {
-      if (item.photoStatus === 'pending') pendingPhotos++;
       if (item.status === 'awaiting_approval' || item.status === 'recount') pendingApprovals++;
     }
-    return { pendingPhotosCount: pendingPhotos, pendingApprovalsCount: pendingApprovals };
+    return pendingApprovals;
   }, [items]);
 
   const pendingBinsCount = useMemo(
@@ -368,7 +366,6 @@ export default function App() {
           <BackOfficeSidebar
             currentTab={backOfficeTab}
             onSelectTab={setBackOfficeTab}
-            pendingPhotosCount={pendingPhotosCount}
             pendingApprovalsCount={pendingApprovalsCount}
             pendingBinsCount={pendingBinsCount}
           />

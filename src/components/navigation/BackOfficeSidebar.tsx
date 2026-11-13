@@ -2,7 +2,6 @@ import React from 'react';
 import {
   LayoutDashboard,
   ClipboardList,
-  Camera,
   CheckSquare,
   FileSpreadsheet,
   BarChart3,
@@ -28,7 +27,6 @@ export type BackOfficeTab =
 interface BackOfficeSidebarProps {
   currentTab: BackOfficeTab;
   onSelectTab: (tab: BackOfficeTab) => void;
-  pendingPhotosCount: number;
   pendingApprovalsCount: number;
   pendingBinsCount: number;
 }
@@ -36,7 +34,6 @@ interface BackOfficeSidebarProps {
 export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
   currentTab,
   onSelectTab,
-  pendingPhotosCount,
   pendingApprovalsCount,
   pendingBinsCount,
 }) => {
@@ -52,13 +49,6 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
       label: 'Audits & Review',
       icon: ClipboardList,
       badge: null,
-    },
-    {
-      id: 'photo_approval' as BackOfficeTab,
-      label: 'Photo Approval',
-      icon: Camera,
-      badge: pendingPhotosCount > 0 ? pendingPhotosCount : null,
-      badgeColor: 'bg-amber-400 text-slate-900',
     },
     {
       id: 'approvals' as BackOfficeTab,
