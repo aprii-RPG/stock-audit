@@ -66,6 +66,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   onOpenAuditPlanner,
 }) => {
   const [selectedItem, setSelectedItem] = useState<AuditItem | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'DISCREPANCY' | 'MATCH'>('ALL');
@@ -366,7 +367,16 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
                       {/* Status */}
                       <td className="py-3 px-3 text-center">
-                        <StatusChip status={item.status} size="sm" />
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleSelectRow(item);
+                          }}
+                          aria-label={`Review ${item.product.name}, status ${item.status}`}
+                        >
+                          <StatusChip status={item.status} size="sm" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -406,12 +416,19 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
               </label>
               {selectedItem.photoUrl ? (
                 <div className="relative rounded-xl overflow-hidden border border-blue-200 bg-slate-900 text-white">
-                  <img
-                    src={selectedItem.photoUrl}
-                    alt="Shelf verification"
-                    className="w-full h-44 object-cover"
-                  />
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-[10px] space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPhotoPreviewUrl(selectedItem.photoUrl ?? null)}
+                    aria-label="Open shelf photo"
+                    className="block w-full cursor-zoom-in"
+                  >
+                    <img
+                      src={selectedItem.photoUrl}
+                      alt="Shelf verification"
+                      className="w-full h-44 object-cover"
+                    />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-[10px] space-y-0.5">
                     <p className="font-bold flex items-center gap-1">
                       <Camera className="w-3 h-3 text-blue-300" />
                       <span>By {selectedItem.countedByUserName || '—'}</span>
@@ -647,6 +664,31 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           </div>
         )}
       </div>
+
+      {photoPreviewUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Shelf photo preview"
+          onClick={() => setPhotoPreviewUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPhotoPreviewUrl(null)}
+            aria-label="Close photo preview"
+            className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={photoPreviewUrl}
+            alt="Full-size shelf verification"
+            className="max-h-[90vh] max-w-full object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };
