@@ -32,7 +32,6 @@ import { ProductReviewView } from './components/backoffice/ProductReviewView';
 import { PhotoApprovalView } from './components/backoffice/PhotoApprovalView';
 import { ProductHistoryView } from './components/backoffice/ProductHistoryView';
 import { AuditPlannerModal } from './components/backoffice/AuditPlannerModal';
-import { ApprovalsView } from './components/backoffice/ApprovalsView';
 import { BinSuggestionsView } from './components/backoffice/BinSuggestionsView';
 import { ReportsView } from './components/backoffice/ReportsView';
 import { AdminSettingsView } from './components/backoffice/AdminSettingsView';
@@ -88,14 +87,6 @@ export default function App() {
     () => Array.from(new Set(products.map((product) => product.defaultBin).filter(Boolean))) as string[],
     [products]
   );
-
-  const pendingApprovalsCount = useMemo(() => {
-    let pendingApprovals = 0;
-    for (const item of items) {
-      if (item.status === 'awaiting_approval' || item.status === 'recount') pendingApprovals++;
-    }
-    return pendingApprovals;
-  }, [items]);
 
   const pendingBinsCount = useMemo(
     () => binSuggestions.filter((suggestion) => suggestion.status === 'pending').length,
@@ -365,7 +356,6 @@ export default function App() {
           <BackOfficeSidebar
             currentTab={backOfficeTab}
             onSelectTab={setBackOfficeTab}
-            pendingApprovalsCount={pendingApprovalsCount}
             pendingBinsCount={pendingBinsCount}
           />
         )}
@@ -543,19 +533,6 @@ export default function App() {
                   items={items}
                   onApprovePhoto={handleApprovePhoto}
                   onRejectPhoto={handleRejectPhoto}
-                />
-              )}
-
-              {backOfficeTab === 'approvals' && (
-                <ApprovalsView
-                  audits={audits}
-                  items={items}
-                  stores={stores}
-                  settings={settings}
-                  currentUser={currentUser}
-                  onApproveItem={async (aId, pId) => {
-                    await handleApproveProduct(aId, pId, 'none');
-                  }}
                 />
               )}
 

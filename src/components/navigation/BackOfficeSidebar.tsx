@@ -2,7 +2,6 @@ import React from 'react';
 import {
   LayoutDashboard,
   ClipboardList,
-  CheckSquare,
   FileSpreadsheet,
   BarChart3,
   Settings,
@@ -15,7 +14,6 @@ export type BackOfficeTab =
   | 'dashboard'
   | 'audits'
   | 'photo_approval'
-  | 'approvals'
   | 'bin_suggestions'
   | 'product_history'
   | 'reports'
@@ -25,14 +23,12 @@ export type BackOfficeTab =
 interface BackOfficeSidebarProps {
   currentTab: BackOfficeTab;
   onSelectTab: (tab: BackOfficeTab) => void;
-  pendingApprovalsCount: number;
   pendingBinsCount: number;
 }
 
 export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
   currentTab,
   onSelectTab,
-  pendingApprovalsCount,
   pendingBinsCount,
 }) => {
   const menuItems = [
@@ -47,13 +43,6 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
       label: 'Audits & Review',
       icon: ClipboardList,
       badge: null,
-    },
-    {
-      id: 'approvals' as BackOfficeTab,
-      label: 'Approvals & Tiers',
-      icon: CheckSquare,
-      badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null,
-      badgeColor: 'bg-rose-500 text-white',
     },
     {
       id: 'bin_suggestions' as BackOfficeTab,
