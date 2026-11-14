@@ -250,6 +250,10 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
   // Filter items
   const auditItems = items.filter((i) => i.auditId === activeAudit?.id);
+  const doneItemCount = auditItems.filter(
+    (item) => item.status === 'skipped' || (item.physicalCount !== undefined && item.status !== 'recount')
+  ).length;
+  const pendingItemCount = auditItems.length - doneItemCount;
   const filteredItems = auditItems.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
@@ -426,6 +430,29 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           )}
         </div>
       </div>
+
+      {activeAudit && (
+        <section
+          aria-label="Audit product progress"
+          className="grid grid-cols-3 gap-3 rounded-xl border border-blue-100 bg-white p-3 shadow-2xs"
+        >
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Products</p>
+            <p className="text-lg font-black text-[#0B3D91]">{auditItems.length}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Done</p>
+            <p className="text-lg font-black text-emerald-700">{doneItemCount}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pending</p>
+            <p className="text-lg font-black text-amber-700">{pendingItemCount}</p>
+          </div>
+          <p className="col-span-3 text-[11px] text-slate-500">
+            Done includes submitted counts awaiting approval; recount requests remain pending.
+          </p>
+        </section>
+      )}
 
       {/* Main Table + Drilldown Side Panel */}
       <div className="flex flex-col lg:flex-row gap-4 items-start">

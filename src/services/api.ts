@@ -298,6 +298,7 @@ export const api = {
     assignedBackOfficeIds: string[];
     productSelectionType: 'all' | 'category' | 'company' | 'not_audited_days';
     filterValue?: string;
+    productLimit?: number;
     notes?: string;
   }): Promise<Audit> {
     const res = await fetch('/api/audits', {

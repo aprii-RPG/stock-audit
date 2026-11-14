@@ -58,6 +58,18 @@ export default async function handler(req, res) {
       }
       const auditors = Array.isArray(b.assignedAuditorIds) ? b.assignedAuditorIds : [];
       const backs = Array.isArray(b.assignedBackOfficeIds) ? b.assignedBackOfficeIds : [];
+      if (
+        b.productSelectionType === "category" &&
+        (typeof b.filterValue !== "string" || !b.filterValue.trim())
+      ) {
+        return res.status(400).json({ error: "Select a product category." });
+      }
+      if (
+        b.productSelectionType === "category" &&
+        (!Number.isInteger(b.productLimit) || b.productLimit < 1 || b.productLimit > 1000000)
+      ) {
+        return res.status(400).json({ error: "For category audits, productLimit must be an integer from 1 to 1,000,000." });
+      }
       const st = await pool.query(`SELECT id, name FROM stores WHERE id = $1`, [b.storeId]);
       if (!st.rows[0]) return res.status(404).json({ error: "Store not found." });
       const store = st.rows[0];
@@ -81,6 +93,10 @@ export default async function handler(req, res) {
         let extra = "";
         if (b.productSelectionType === "category" && b.filterValue) { params.push(b.filterValue); extra = " AND p.category = $3"; }
         else if (b.productSelectionType === "company" && b.filterValue) { params.push(b.filterValue); extra = " AND p.company = $3"; }
+        if (b.productSelectionType === "category") {
+          params.push(b.productLimit);
+          extra += ` ORDER BY p.code LIMIT $${params.length}`;
+        }
         const ins = await client.query(
           `INSERT INTO audit_items (id, audit_id, product_id, bin, snapshot_qty)
            SELECT 'ITM-' || $1::text || '-' || (ROW_NUMBER() OVER (ORDER BY p.code))::text, $1::text, p.id, sp.default_bin, sp.system_qty

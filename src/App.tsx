@@ -290,6 +290,7 @@ export default function App() {
     assignedBackOfficeIds: string[];
     productSelectionType: 'all' | 'category' | 'company' | 'not_audited_days';
     filterValue?: string;
+    productLimit?: number;
     notes?: string;
   }) => {
     const created = await api.createAudit(payload);

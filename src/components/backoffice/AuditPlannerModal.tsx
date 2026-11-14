@@ -54,6 +54,7 @@ interface AuditPlannerModalProps {
     assignedBackOfficeIds: string[];
     productSelectionType: 'all' | 'category' | 'company' | 'not_audited_days';
     filterValue?: string;
+    productLimit?: number;
     notes?: string;
   }) => Promise<void>;
 }
@@ -71,6 +72,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
     'all' | 'category' | 'company' | 'not_audited_days'
   >('all');
   const [filterValue, setFilterValue] = useState('');
+  const [productLimit, setProductLimit] = useState('10');
   const [assignedAuditorIds, setAssignedAuditorIds] = useState<string[]>([]);
   const [auditorSearch, setAuditorSearch] = useState('');
   const [assignedBackOfficeIds, setAssignedBackOfficeIds] = useState<string[]>([]);
@@ -101,6 +103,15 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
       alert('Please assign at least one field auditor.');
       return;
     }
+    if (
+      productSelectionType === 'category' &&
+      (!Number.isInteger(Number(productLimit)) ||
+        Number(productLimit) < 1 ||
+        Number(productLimit) > 1000000)
+    ) {
+      alert('Enter how many products to include from this category (1 to 1,000,000).');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onCreateAudit({
@@ -111,6 +122,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
         assignedBackOfficeIds,
         productSelectionType,
         filterValue,
+        productLimit: productSelectionType === 'category' ? Number(productLimit) : undefined,
         notes,
       });
       onClose();
@@ -250,25 +262,46 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
 
           {/* Conditional Filter Value input */}
           {productSelectionType === 'category' && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Category Name
-              </label>
-              <select
-                value={filterValue}
-                onChange={(e) => setFilterValue(e.target.value)}
-                required
-                className="w-full px-3 py-2 text-xs rounded-xl border border-blue-200 bg-slate-50 min-h-[44px]"
-              >
-                <option value="" disabled>
-                  Select a medicine category
-                </option>
-                {MEDICINE_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Category Name
+                </label>
+                <select
+                  value={filterValue}
+                  onChange={(e) => setFilterValue(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-blue-200 bg-slate-50 min-h-[44px]"
+                >
+                  <option value="" disabled>
+                    Select a medicine category
                   </option>
-                ))}
-              </select>
+                  {MEDICINE_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Products to Audit
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000000"
+                  step="1"
+                  value={productLimit}
+                  onChange={(event) => setProductLimit(event.target.value)}
+                  required
+                  aria-describedby="product-limit-help"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-blue-200 bg-slate-50 min-h-[44px]"
+                />
+                <p id="product-limit-help" className="mt-1 text-[11px] text-slate-500">
+                  Selects up to this many matching products, ordered by product code.
+                </p>
+              </div>
             </div>
           )}
 
