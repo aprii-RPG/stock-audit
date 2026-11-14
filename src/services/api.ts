@@ -156,7 +156,25 @@ export function calculateAuditDiscrepancy(item: AuditItem): {
 export const api = {
   // Authentication & Users
   async getCurrentUser(): Promise<User | null> {
-    return readStorage<User | null>(STORAGE_KEYS.CURRENT_USER, null);
+    const cachedUser = readStorage<User | null>(STORAGE_KEYS.CURRENT_USER, null);
+    try {
+      const res = await fetch('/api/me');
+      if (res.status === 401) {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+        return null;
+      }
+      if (!res.ok) throw new Error(`Could not verify session (${res.status}).`);
+      const data = await res.json();
+      if (!data.user) {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+        return null;
+      }
+      writeStorage(STORAGE_KEYS.CURRENT_USER, data.user);
+      return data.user as User;
+    } catch (error) {
+      console.error('Could not verify current user session:', error);
+      return cachedUser;
+    }
   },
 
   async setCurrentUser(user: User): Promise<void> {
@@ -196,7 +214,8 @@ export const api = {
       return data.users as User[];
     } catch (error) {
       console.error('Failed to load users:', error);
-      return [];
+      if (error instanceof TypeError) return readStorage<User[]>(STORAGE_KEYS.USERS, []);
+      throw error;
     }
   },
 
@@ -245,13 +264,18 @@ export const api = {
   // Products
   async getProducts(): Promise<Product[]> {
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/product');
+      if (res.status === 401 || res.status === 403) return [];
+      if (!res.ok) throw new Error(`Could not load products (${res.status}).`);
       if (res.ok) {
         const data = await res.json();
+        if (!Array.isArray(data.products)) throw new Error('Invalid products response.');
         writeStorage(STORAGE_KEYS.PRODUCTS, data.products);
         return data.products as Product[];
       }
-    } catch { /* offline: use saved list */ }
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+    }
     return readStorage<Product[]>(STORAGE_KEYS.PRODUCTS, []);
   },
 
@@ -277,8 +301,11 @@ export const api = {
     const qs = storeId && storeId !== 'ALL' ? `?storeId=${encodeURIComponent(storeId)}` : '';
     try {
       const res = await fetch('/api/audits' + qs);
+      if (res.status === 401 || res.status === 403) return [];
+      if (!res.ok) throw new Error(`Could not load audits (${res.status}).`);
       if (res.ok) {
         const data = await res.json();
+        if (!Array.isArray(data.audits)) throw new Error('Invalid audits response.');
         const cachedAudits = readStorage<Audit[]>(STORAGE_KEYS.AUDITS, []);
         const cachedById = new Map(cachedAudits.map((audit) => [audit.id, audit]));
         return (data.audits as Audit[]).map((audit) => ({
@@ -286,7 +313,9 @@ export const api = {
           completedAt: audit.completedAt || cachedById.get(audit.id)?.completedAt,
         }));
       }
-    } catch { /* offline */ }
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+    }
     return [];
   },
 
@@ -319,11 +348,16 @@ export const api = {
   async getAuditItems(auditId: string): Promise<AuditItem[]> {
     try {
       const res = await fetch('/api/audit-items?auditId=' + encodeURIComponent(auditId));
+      if (res.status === 401 || res.status === 403) return [];
+      if (!res.ok) throw new Error(`Could not load audit products (${res.status}).`);
       if (res.ok) {
         const data = await res.json();
+        if (!Array.isArray(data.items)) throw new Error('Invalid audit products response.');
         return data.items as AuditItem[];
       }
-    } catch { /* offline */ }
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+    }
     return [];
   },
 
