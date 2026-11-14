@@ -13,6 +13,7 @@ import {
   FileCheck2,
   X,
   AlertTriangle,
+  Trash2,
   UserCheck,
   ChevronRight,
   HelpCircle,
@@ -39,11 +40,13 @@ interface ProductReviewViewProps {
   stores: Store[];
   users: User[];
   canEditPhysicalQuantity: boolean;
+  canDeleteAudit: boolean;
   cutoffBillsMap: Record<string, CutoffBillItem[]>;
   onApproveProduct: (
     itemId: string,
     reason: DifferenceReason,
-    note?: string
+    note?: string,
+    zeroStockApproval?: boolean
   ) => Promise<AuditItem>;
   onUpdatePhysicalQuantity: (itemId: string, physicalCount: number) => Promise<AuditItem>;
   onSendToRecount: (
@@ -52,6 +55,7 @@ interface ProductReviewViewProps {
     recountAssigneeId: string,
     note?: string
   ) => Promise<void>;
+  onDeleteAudit: (auditId: string) => Promise<void>;
   onOpenAuditPlanner: () => void;
 }
 
@@ -63,10 +67,12 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   stores,
   users,
   canEditPhysicalQuantity,
+  canDeleteAudit,
   cutoffBillsMap,
   onApproveProduct,
   onUpdatePhysicalQuantity,
   onSendToRecount,
+  onDeleteAudit,
   onOpenAuditPlanner,
 }) => {
   const [selectedItem, setSelectedItem] = useState<AuditItem | null>(null);
@@ -86,6 +92,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [physicalQuantityInput, setPhysicalQuantityInput] = useState('');
   const [isSavingPhysicalQuantity, setIsSavingPhysicalQuantity] = useState(false);
+  const [isDeletingAudit, setIsDeletingAudit] = useState(false);
+  const [deleteAuditError, setDeleteAuditError] = useState<string | null>(null);
 
   const activeAudit = audits.find((a) => a.id === selectedAuditId) || audits[0];
 
@@ -169,6 +177,28 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     }
   };
 
+  const handleApproveZeroStock = async () => {
+    if (!selectedItem || selectedItem.physicalCount !== 0) return;
+    setIsSubmitting(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const approvedItem = await onApproveProduct(
+        selectedItem.id,
+        selectedReason,
+        reasonNote,
+        true
+      );
+      setSelectedItem(approvedItem);
+      setActionSuccess('Zero-stock product approved.');
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRecount = async () => {
     if (!selectedItem) return;
     if (!recountAssigneeId) {
@@ -194,6 +224,25 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       setActionError(msg);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAudit = async () => {
+    if (!activeAudit || isDeletingAudit) return;
+    const confirmed = window.confirm(
+      `Delete "${activeAudit.name}" permanently? Its product records, assignments, and photos will also be deleted. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeletingAudit(true);
+    setDeleteAuditError(null);
+    try {
+      await onDeleteAudit(activeAudit.id);
+      setSelectedItem(null);
+    } catch (error: unknown) {
+      setDeleteAuditError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsDeletingAudit(false);
     }
   };
 
@@ -262,14 +311,32 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           )}
         </div>
 
-        <button
-          onClick={onOpenAuditPlanner}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D5FD1] hover:bg-[#0B3D91] text-white text-xs sm:text-sm font-bold transition shadow-xs min-h-[44px]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Audit Planner</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {canDeleteAudit && activeAudit && (
+            <button
+              type="button"
+              onClick={handleDeleteAudit}
+              disabled={isDeletingAudit}
+              className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs sm:text-sm font-bold transition min-h-[44px] disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isDeletingAudit ? 'Deleting...' : 'Delete Audit'}</span>
+            </button>
+          )}
+          <button
+            onClick={onOpenAuditPlanner}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D5FD1] hover:bg-[#0B3D91] text-white text-xs sm:text-sm font-bold transition shadow-xs min-h-[44px]"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Audit Planner</span>
+          </button>
+        </div>
       </div>
+      {deleteAuditError && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          {deleteAuditError}
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-wrap items-center gap-2.5 bg-white p-3 rounded-xl border border-blue-100 shadow-2xs">
@@ -320,6 +387,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   <th className="py-3 px-3 text-right">Snapshot Qty</th>
                   <th className="py-3 px-3 text-right">Sales Post-Cutoff</th>
                   <th className="py-3 px-3 text-right">Physical</th>
+                  <th className="py-3 px-3 text-center">Submitted At</th>
                   <th className="py-3 px-3 text-center">Final Difference</th>
                   <th className="py-3 px-3 text-right">Value (INR)</th>
                   <th className="py-3 px-3 text-center">Status</th>
@@ -392,6 +460,17 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                         ) : (
                           <span className="text-slate-400 italic">Not counted</span>
                         )}
+                      </td>
+
+                      {/* Count submission timestamp */}
+                      <td className="py-3 px-3 text-center text-[11px] font-mono text-slate-600 whitespace-nowrap">
+                        {item.countSavedAt
+                          ? new Date(item.countSavedAt).toLocaleString('en-IN', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                              timeZone: 'Asia/Kolkata',
+                            })
+                          : '—'}
                       </td>
 
                       {/* Final Difference: blue ▲ Excess / red ▼ Short */}
@@ -731,7 +810,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
               </div>
             ) : (
               /* Buttons: Approve and Send to recount */
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowRecountForm(true)}
@@ -756,6 +835,17 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                       : 'Approve'}
                   </span>
                 </button>
+                {selectedItem.physicalCount === 0 && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting || selectedItem.status === 'approved'}
+                    onClick={handleApproveZeroStock}
+                    className="flex-1 min-w-[150px] py-3 px-3 rounded-xl bg-indigo-700 hover:bg-indigo-600 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-700/20 min-h-[46px]"
+                  >
+                    <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                    <span>{isSubmitting ? 'Approving...' : 'Approve Zero Stock'}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

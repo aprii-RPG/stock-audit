@@ -140,6 +140,9 @@ export default function App() {
           if (!prev) return a[0];
           return a.find((x) => x.id === prev.id) || a[0];
         });
+      } else {
+        setItems([]);
+        setActiveAudit(null);
       }
     } catch (e) {
       console.error('Data load error:', e);
@@ -235,9 +238,10 @@ export default function App() {
   const handleApproveProduct = async (
     itemId: string,
     reason: DifferenceReason,
-    note?: string
+    note?: string,
+    zeroStockApproval = false
   ) => {
-    const approvedItem = await api.approveProduct(itemId, reason, note);
+    const approvedItem = await api.approveProduct(itemId, reason, note, zeroStockApproval);
     setItems((currentItems) =>
       currentItems.map((item) => (item.id === approvedItem.id ? approvedItem : item))
     );
@@ -287,6 +291,11 @@ export default function App() {
     await refreshData();
     setActiveAudit(created);
     setBackOfficeTab('audits');
+  };
+
+  const handleDeleteAudit = async (auditId: string) => {
+    await api.deleteAudit(auditId);
+    await refreshData();
   };
 
   const handleSubmitAudit = async () => {
@@ -529,10 +538,12 @@ export default function App() {
                   stores={stores}
                   users={allUsers}
                   canEditPhysicalQuantity={['admin', 'back office'].includes(String(currentUser?.role).trim().toLowerCase())}
+                  canDeleteAudit={['admin', 'back office'].includes(String(currentUser?.role).trim().toLowerCase())}
                   cutoffBillsMap={cutoffBillsMap}
                   onApproveProduct={handleApproveProduct}
                   onUpdatePhysicalQuantity={handleUpdatePhysicalQuantity}
                   onSendToRecount={handleSendToRecount}
+                  onDeleteAudit={handleDeleteAudit}
                   onOpenAuditPlanner={() => setShowPlannerModal(true)}
                 />
               )}

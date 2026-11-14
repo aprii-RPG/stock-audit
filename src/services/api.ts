@@ -310,6 +310,16 @@ export const api = {
     return data.audit as Audit;
   },
 
+  async deleteAudit(auditId: string): Promise<void> {
+    const res = await fetch('/api/audits', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not delete audit planner.');
+  },
+
   // Audit Items & Counts
   async getAuditItems(auditId: string): Promise<AuditItem[]> {
     try {
@@ -365,12 +375,13 @@ export const api = {
   async approveProduct(
     itemId: string,
     reason: DifferenceReason = 'none',
-    reasonNote?: string
+    reasonNote?: string,
+    zeroStockApproval = false
   ): Promise<AuditItem> {
     const res = await fetch('/api/approve-product', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, reason, reasonNote }),
+      body: JSON.stringify({ itemId, reason, reasonNote, zeroStockApproval }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Could not approve this audit item.');

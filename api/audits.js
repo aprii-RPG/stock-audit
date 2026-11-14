@@ -1,5 +1,6 @@
 import pool from "../lib/db.js";
 import { requireUser, logAction } from "../lib/auth.js";
+import { deleteObject } from "../lib/r2.js";
 
 const SELECT_AUDIT = `
   SELECT a.*, to_char(a.audit_date,'YYYY-MM-DD') AS audit_date_text, s.name AS store_name
@@ -102,6 +103,60 @@ export default async function handler(req, res) {
       }
       const [audit] = await loadAudits("WHERE a.id = $1", [id]);
       return res.status(201).json({ audit });
+    }
+
+    if (req.method === "DELETE") {
+      const user = await requireUser(req, res, ["admin", "back office"]);
+      if (!user) return;
+      const { auditId } = req.body || {};
+      if (typeof auditId !== "string" || !auditId.trim()) {
+        return res.status(400).json({ error: "auditId is required." });
+      }
+
+      const client = await pool.connect();
+      let photoKeys = [];
+      try {
+        await client.query("BEGIN");
+        const auditResult = await client.query(
+          `SELECT id, name FROM audits WHERE id = $1 FOR UPDATE`,
+          [auditId]
+        );
+        const audit = auditResult.rows[0];
+        if (!audit) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ error: "Audit planner not found." });
+        }
+
+        const photos = await client.query(
+          `SELECT photo_url FROM audit_items WHERE audit_id = $1 AND photo_url IS NOT NULL`,
+          [auditId]
+        );
+        photoKeys = photos.rows.map((row) => row.photo_url);
+
+        const deletedItems = await client.query(
+          `DELETE FROM audit_items WHERE audit_id = $1`,
+          [auditId]
+        );
+        const deletedAssignments = await client.query(
+          `DELETE FROM audit_assignments WHERE audit_id = $1`,
+          [auditId]
+        );
+        await logAction(client, user, {
+          action: "AUDIT_DELETED",
+          auditName: audit.name,
+          details: `Audit ${audit.name} and its ${deletedItems.rowCount} product records and ${deletedAssignments.rowCount} assignments were deleted by ${user.name}.`,
+        });
+        await client.query(`DELETE FROM audits WHERE id = $1`, [auditId]);
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
+
+      await Promise.all(photoKeys.map((key) => deleteObject(key)));
+      return res.status(200).json({ deleted: true, auditId });
     }
 
     return res.status(405).json({ error: "Method not allowed" });

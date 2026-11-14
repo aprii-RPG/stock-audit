@@ -22,7 +22,14 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Only admin and back-office users can approve products." });
     }
 
-    const { itemId, auditId, productId, reason = "none", reasonNote } = req.body || {};
+    const {
+      itemId,
+      auditId,
+      productId,
+      reason = "none",
+      reasonNote,
+      zeroStockApproval = false,
+    } = req.body || {};
     if (!itemId && (!auditId || !productId)) {
       return res.status(400).json({ error: "itemId is required." });
     }
@@ -31,6 +38,9 @@ export default async function handler(req, res) {
     }
     if (reasonNote !== undefined && typeof reasonNote !== "string") {
       return res.status(400).json({ error: "Reason note must be text." });
+    }
+    if (typeof zeroStockApproval !== "boolean") {
+      return res.status(400).json({ error: "Invalid zero-stock approval request." });
     }
     const cleanReasonNote = typeof reasonNote === "string" ? reasonNote.trim().slice(0, 500) : null;
 
@@ -52,6 +62,10 @@ export default async function handler(req, res) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Audit item not found." });
     }
+    if (zeroStockApproval && Number(item.physical_count) !== 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "Zero-stock approval is only allowed when the physical count is zero." });
+    }
 
     const updatedStatus = await client.query(
       `UPDATE audit_items SET
@@ -69,8 +83,8 @@ export default async function handler(req, res) {
     }
 
     await logAction(client, user, {
-      action: "PRODUCT_APPROVED",
-      details: `Product approved by ${user.name}. Reason: ${reason}${
+      action: zeroStockApproval ? "ZERO_STOCK_APPROVED" : "PRODUCT_APPROVED",
+      details: `${zeroStockApproval ? "Zero-stock product" : "Product"} approved by ${user.name}. Reason: ${reason}${
         cleanReasonNote ? `. Note: ${cleanReasonNote}` : ""
       }`,
       auditId: item.audit_id,
