@@ -256,9 +256,10 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
               <input
                 type="number"
                 min="0"
+                step="any"
                 value={count === 0 ? '' : count}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
+                  const val = parseFloat(e.target.value);
                   setCount(isNaN(val) ? 0 : Math.max(0, val));
                 }}
                 placeholder="0"
