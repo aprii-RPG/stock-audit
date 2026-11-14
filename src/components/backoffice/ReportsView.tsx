@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import {
   BarChart3,
-  CheckCircle2,
   Download,
   AlertTriangle,
   Clock,
-  FileSpreadsheet,
   ShieldAlert,
   UserCheck,
   Package,
   Layers,
-  RefreshCw,
 } from 'lucide-react';
 import type { Audit, AuditItem, Product, Store, User } from '../../types';
-import { api, calculateAuditDiscrepancy } from '../../services/api';
+import { calculateAuditDiscrepancy } from '../../services/api';
 import { DifferenceBadge } from '../common/DifferenceBadge';
 import { AuditedProductsExportButton } from '../common/AuditedProductsExportButton';
 import { formatINR } from '../../utils/currency';
@@ -43,24 +40,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [activeReport, setActiveReport] = useState<ReportType>('no_bin');
   const [overdueDaysThreshold, setOverdueDaysThreshold] = useState<number>(60);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
-  const [isSyncingApprovedProducts, setIsSyncingApprovedProducts] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  const [syncError, setSyncError] = useState(false);
-
-  const handleSyncApprovedProducts = async () => {
-    setIsSyncingApprovedProducts(true);
-    setSyncMessage(null);
-    setSyncError(false);
-    try {
-      const syncedCount = await api.syncApprovedProducts();
-      setSyncMessage(`${syncedCount} approved product(s) synced to Google Sheets.`);
-    } catch (error) {
-      setSyncError(true);
-      setSyncMessage(error instanceof Error ? error.message : 'Google Sheets sync failed.');
-    } finally {
-      setIsSyncingApprovedProducts(false);
-    }
-  };
 
   // Helper to trigger CSV/Excel export
   const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -226,34 +205,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             Generate compliance reports, shrink analysis, auditor accuracy, and export Excel data.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <AuditedProductsExportButton audits={audits} items={items} stores={stores} />
-          <button
-            type="button"
-            onClick={handleSyncApprovedProducts}
-            disabled={isSyncingApprovedProducts}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-900 disabled:cursor-wait text-white text-xs sm:text-sm font-bold transition min-h-[44px]"
-          >
-            {isSyncingApprovedProducts ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <FileSpreadsheet className="w-4 h-4" />
-            )}
-            <span>{isSyncingApprovedProducts ? 'Syncing...' : 'Sync Approved to Google Sheets'}</span>
-          </button>
-        </div>
+        <AuditedProductsExportButton audits={audits} items={items} stores={stores} />
       </div>
-      {syncMessage && (
-        <p
-          role={syncError ? 'alert' : 'status'}
-          className={`flex items-center gap-2 text-xs font-semibold ${
-            syncError ? 'text-rose-700' : 'text-emerald-700'
-          }`}
-        >
-          {!syncError && <CheckCircle2 className="w-4 h-4" />}
-          {syncMessage}
-        </p>
-      )}
 
       {/* Report Selection Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-blue-100 pb-2">

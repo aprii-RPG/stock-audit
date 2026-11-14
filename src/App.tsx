@@ -68,7 +68,6 @@ export default function App() {
   const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
 
   const auditItemsMap = useMemo(() => {
     const grouped: Record<string, AuditItem[]> = {};
@@ -96,7 +95,6 @@ export default function App() {
 
   // Refresh all state from API
   const refreshData = useCallback(async () => {
-    setDataLoadError(null);
     try {
       const [
         u,
@@ -145,7 +143,6 @@ export default function App() {
       }
     } catch (e) {
       console.error('Data load error:', e);
-      setDataLoadError(e instanceof Error ? e.message : 'Could not load application data.');
     } finally {
       setIsLoading(false);
     }
@@ -247,15 +244,6 @@ export default function App() {
     return approvedItem;
   };
 
-  const handleUpdatePhysicalQuantity = async (itemId: string, physicalCount: number) => {
-    const updatedItem = await api.updatePhysicalQuantity(itemId, physicalCount);
-    setItems((currentItems) =>
-      currentItems.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-    );
-    await refreshData();
-    return updatedItem;
-  };
-
   const handleSendToRecount = async (
     auditId: string,
     productId: string,
@@ -311,7 +299,7 @@ export default function App() {
     await refreshData();
   };
 
-  if (isLoading) {
+  if (isLoading || !settings) {
     return (
       <div className="min-h-screen bg-[#F7FAFF] flex items-center justify-center p-4">
         <div className="text-center space-y-3">
@@ -320,44 +308,6 @@ export default function App() {
           </div>
           <p className="text-sm font-bold text-[#0B3D91]">Loading Stock Audit System...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (dataLoadError) {
-    return (
-      <div className="min-h-screen bg-[#F7FAFF] flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-lg">
-          <h1 className="text-lg font-black text-slate-900">Could not load your data</h1>
-          <p role="alert" className="mt-2 text-sm text-rose-700">{dataLoadError}</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setIsLoading(true);
-                void refreshData();
-              }}
-              className="rounded-xl bg-[#1D5FD1] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0B3D91]"
-            >
-              Retry
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
-            >
-              Sign in again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!settings) {
-    return (
-      <div className="min-h-screen bg-[#F7FAFF] flex items-center justify-center p-4">
-        <p className="text-sm font-bold text-[#0B3D91]">Loading Stock Audit System...</p>
       </div>
     );
   }
@@ -569,11 +519,8 @@ export default function App() {
                   items={items}
                   stores={stores}
                   users={allUsers}
-                  logs={logs}
-                  canEditPhysicalQuantity={currentUser?.role === 'admin' || currentUser?.role === 'back office'}
                   cutoffBillsMap={cutoffBillsMap}
                   onApproveProduct={handleApproveProduct}
-                  onUpdatePhysicalQuantity={handleUpdatePhysicalQuantity}
                   onSendToRecount={handleSendToRecount}
                   onOpenAuditPlanner={() => setShowPlannerModal(true)}
                 />

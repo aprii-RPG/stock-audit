@@ -2,15 +2,7 @@ import pool from "../lib/db.js";
 import { requireUser, logAction } from "../lib/auth.js";
 
 const SELECT_AUDIT = `
-  SELECT a.*, to_char(a.audit_date,'YYYY-MM-DD') AS audit_date_text, s.name AS store_name,
-         COALESCE(
-           a.completed_at,
-           (
-             SELECT MAX(al.created_at)
-               FROM audit_logs al
-              WHERE al.audit_id = a.id AND al.action = 'AUDIT_CLOSED'
-           )
-         ) AS submitted_at
+  SELECT a.*, to_char(a.audit_date,'YYYY-MM-DD') AS audit_date_text, s.name AS store_name
   FROM audits a JOIN stores s ON s.id = a.store_id`;
 
 function shape(r, assigns) {
@@ -25,7 +17,7 @@ function shape(r, assigns) {
       : "",
     cutoffBillNo: r.cutoff_bill_no || "",
     notes: r.notes || undefined,
-    completedAt: r.submitted_at ? new Date(r.submitted_at).toISOString() : undefined,
+    completedAt: r.completed_at ? new Date(r.completed_at).toISOString() : undefined,
     createdAt: new Date(r.created_at).toISOString(),
   };
 }

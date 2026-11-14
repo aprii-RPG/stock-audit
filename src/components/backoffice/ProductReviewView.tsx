@@ -23,7 +23,6 @@ import type {
   AuditItem,
   CutoffBillItem,
   DifferenceReason,
-  AuditLogEntry,
   Store,
   User,
 } from '../../types';
@@ -39,15 +38,12 @@ interface ProductReviewViewProps {
   items: AuditItem[];
   stores: Store[];
   users: User[];
-  logs: AuditLogEntry[];
-  canEditPhysicalQuantity: boolean;
   cutoffBillsMap: Record<string, CutoffBillItem[]>;
   onApproveProduct: (
     itemId: string,
     reason: DifferenceReason,
     note?: string
   ) => Promise<AuditItem>;
-  onUpdatePhysicalQuantity: (itemId: string, physicalCount: number) => Promise<AuditItem>;
   onSendToRecount: (
     auditId: string,
     productId: string,
@@ -64,11 +60,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   items,
   stores,
   users,
-  logs,
-  canEditPhysicalQuantity,
   cutoffBillsMap,
   onApproveProduct,
-  onUpdatePhysicalQuantity,
   onSendToRecount,
   onOpenAuditPlanner,
 }) => {
@@ -77,8 +70,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'DISCREPANCY' | 'MATCH'>('ALL');
-  const [submittedFromDate, setSubmittedFromDate] = useState('');
-  const [submittedToDate, setSubmittedToDate] = useState('');
 
   // Side panel form states
   const [selectedReason, setSelectedReason] = useState<DifferenceReason>('none');
@@ -89,39 +80,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
-  const [physicalQuantityInput, setPhysicalQuantityInput] = useState('');
-  const [isSavingPhysicalQuantity, setIsSavingPhysicalQuantity] = useState(false);
 
-  const getSubmittedAt = (audit: Audit) =>
-    audit.completedAt ||
-    logs
-      .filter((log) => log.auditId === audit.id && log.action === 'AUDIT_CLOSED')
-      .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))[0]?.timestamp;
-
-  const toISTDate = (timestamp: string) => {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date(timestamp));
-    const part = (type: Intl.DateTimeFormatPartTypes) =>
-      parts.find((entry) => entry.type === type)?.value || '';
-    return `${part('year')}-${part('month')}-${part('day')}`;
-  };
-
-  const filteredAudits = audits.filter((audit) => {
-    if (!submittedFromDate && !submittedToDate) return true;
-    const submittedAt = getSubmittedAt(audit);
-    if (!submittedAt) return false;
-    const submittedDate = toISTDate(submittedAt);
-    return (
-      (!submittedFromDate || submittedDate >= submittedFromDate) &&
-      (!submittedToDate || submittedDate <= submittedToDate)
-    );
-  });
-  const activeAudit =
-    filteredAudits.find((audit) => audit.id === selectedAuditId) || filteredAudits[0];
+  const activeAudit = audits.find((a) => a.id === selectedAuditId) || audits[0];
 
   useEffect(() => {
     setSelectedItem(null);
@@ -139,7 +99,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   // Sync item selection
   const handleSelectRow = (item: AuditItem) => {
     setSelectedItem(item);
-    setPhysicalQuantityInput(item.physicalCount === undefined ? '' : String(item.physicalCount));
     setSelectedReason(item.differenceReason || 'none');
     setReasonNote(item.differenceReasonNote || '');
     setShowRecountForm(false);
@@ -152,29 +111,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     );
     setRecountAssigneeId(differentUser?.id || users[1]?.id || '');
     setRecountNote('');
-  };
-
-  const handleUpdatePhysicalQuantity = async () => {
-    if (!selectedItem) return;
-    const physicalCount = Number(physicalQuantityInput);
-    if (physicalQuantityInput.trim() === '' || !Number.isFinite(physicalCount) || physicalCount < 0) {
-      setActionError('Enter a valid physical quantity.');
-      return;
-    }
-    setIsSavingPhysicalQuantity(true);
-    setActionError(null);
-    setActionSuccess(null);
-    try {
-      const updatedItem = await onUpdatePhysicalQuantity(selectedItem.id, physicalCount);
-      setSelectedItem(updatedItem);
-      setPhysicalQuantityInput(String(updatedItem.physicalCount ?? ''));
-      setActionSuccess('Physical quantity updated. The item is now awaiting approval.');
-      setTimeout(() => setActionSuccess(null), 4000);
-    } catch (error: unknown) {
-      setActionError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsSavingPhysicalQuantity(false);
-    }
   };
 
   const handleApprove = async () => {
@@ -257,14 +193,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       : [];
 
   const selectedItemDisc = selectedItem ? calculateAuditDiscrepancy(selectedItem) : null;
-  const submittedAtValue = activeAudit ? getSubmittedAt(activeAudit) : undefined;
-  const submittedAt = submittedAtValue
-    ? new Intl.DateTimeFormat('en-IN', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone: 'Asia/Kolkata',
-      }).format(new Date(submittedAtValue))
-    : 'Unavailable';
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
@@ -273,16 +201,14 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Select Submitted Audit
+              Select Audit Cycle
             </label>
             <select
-              value={activeAudit?.id || ''}
+              value={activeAudit?.id}
               onChange={(e) => onSelectAuditId(e.target.value)}
-              disabled={filteredAudits.length === 0}
               className="text-sm font-bold text-[#0B3D91] bg-blue-50/70 border border-blue-200 rounded-xl px-3 py-2 min-h-[44px] cursor-pointer"
             >
-              {filteredAudits.length === 0 && <option value="">No audits in date range</option>}
-              {filteredAudits.map((a) => (
+              {audits.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} ({a.status})
                 </option>
@@ -301,59 +227,13 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           )}
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <div>
-            <label
-              htmlFor="submitted-from-date"
-              className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider"
-            >
-              Submitted From (IST)
-            </label>
-            <input
-              id="submitted-from-date"
-              type="date"
-              value={submittedFromDate}
-              max={submittedToDate || undefined}
-              onChange={(event) => setSubmittedFromDate(event.target.value)}
-              className="px-2.5 py-2 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl min-h-[44px]"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="submitted-to-date"
-              className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider"
-            >
-              Submitted To (IST)
-            </label>
-            <input
-              id="submitted-to-date"
-              type="date"
-              value={submittedToDate}
-              min={submittedFromDate || undefined}
-              onChange={(event) => setSubmittedToDate(event.target.value)}
-              className="px-2.5 py-2 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl min-h-[44px]"
-            />
-          </div>
-          {(submittedFromDate || submittedToDate) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSubmittedFromDate('');
-                setSubmittedToDate('');
-              }}
-              className="px-3 py-2 text-xs font-semibold text-[#0B3D91] bg-blue-50 hover:bg-blue-100 rounded-xl min-h-[44px]"
-            >
-              Clear dates
-            </button>
-          )}
-          <button
-            onClick={onOpenAuditPlanner}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D5FD1] hover:bg-[#0B3D91] text-white text-xs sm:text-sm font-bold transition shadow-xs min-h-[44px]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Audit Planner</span>
-          </button>
-        </div>
+        <button
+          onClick={onOpenAuditPlanner}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D5FD1] hover:bg-[#0B3D91] text-white text-xs sm:text-sm font-bold transition shadow-xs min-h-[44px]"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Audit Planner</span>
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -408,7 +288,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   <th className="py-3 px-3 text-center">Final Difference</th>
                   <th className="py-3 px-3 text-right">Value (INR)</th>
                   <th className="py-3 px-3 text-center">Status</th>
-                  <th className="py-3 px-3 text-center whitespace-nowrap">Submitted At (IST)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -517,9 +396,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                           <StatusChip status={item.status} size="sm" />
                         </button>
                       </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap text-[11px] text-slate-600">
-                        {submittedAt}
-                      </td>
                     </tr>
                   );
                 })}
@@ -598,44 +474,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                 </span>
               </div>
             </div>
-
-            {canEditPhysicalQuantity && (
-              <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-                <label
-                  htmlFor="edit-physical-quantity"
-                  className="block text-xs font-bold uppercase tracking-wider text-amber-900"
-                >
-                  Edit Physical Quantity
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="edit-physical-quantity"
-                    type="number"
-                    min="0"
-                    max="1000000"
-                    step="1"
-                    value={physicalQuantityInput}
-                    onChange={(event) => setPhysicalQuantityInput(event.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleUpdatePhysicalQuantity}
-                    disabled={
-                      isSavingPhysicalQuantity ||
-                      physicalQuantityInput.trim() === '' ||
-                      Number(physicalQuantityInput) === selectedItem.physicalCount
-                    }
-                    className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isSavingPhysicalQuantity ? 'Saving...' : 'Save Qty'}
-                  </button>
-                </div>
-                <p className="text-[11px] text-amber-800">
-                  Saving a changed quantity resets the item to Awaiting Approval.
-                </p>
-              </div>
-            )}
 
             {/* Reconciliation Math Formula Box */}
             {selectedItemDisc && (
