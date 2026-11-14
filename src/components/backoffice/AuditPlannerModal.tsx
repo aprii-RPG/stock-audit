@@ -12,6 +12,36 @@ import {
 } from 'lucide-react';
 import type { AuditType, Store, User } from '../../types';
 
+const MEDICINE_CATEGORIES = [
+  'SLOW-ETHICAL',
+  'MEDIUM-ETHICAL',
+  'NON-ETHICAL',
+  'FAST-ETHICAL',
+  'NON-GENERIC',
+  'SLOW-GENERIC',
+  'MEDIUM-GENERIC',
+  'HIGH-GENERIC',
+  'NON-GENERAL',
+  'NON-SURGICAL',
+  'SLOW-SURGICAL',
+  'NON-(NIL)',
+  'FAST-GENERIC',
+  'HIGH-ETHICAL',
+  'SLOW-GENERAL',
+  'MEDIUM-SURGICAL',
+  'MEDIUM-GENERAL',
+  'HIGH-GENERAL',
+  'FAST-AYURVEDIC',
+  'SLOW-AYURVEDIC',
+  'FAST-GENERAL',
+  'HIGH-SURGICAL',
+  'FAST-SURGICAL',
+  'MEDIUM-AYURVEDIC',
+  'NON-AYURVEDIC',
+  'FAST-(NIL)',
+  'SLOW-(NIL)',
+];
+
 interface AuditPlannerModalProps {
   stores: Store[];
   users: User[];
@@ -202,11 +232,12 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
               </label>
               <select
                 value={productSelectionType}
-                onChange={(e) =>
+                onChange={(e) => {
                   setProductSelectionType(
                     e.target.value as 'all' | 'category' | 'company' | 'not_audited_days'
-                  )
-                }
+                  );
+                  setFilterValue('');
+                }}
                 className="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-blue-200 bg-slate-50 focus:bg-white min-h-[44px]"
               >
                 <option value="all">All Store Products</option>
@@ -223,14 +254,21 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 Category Name
               </label>
-              <input
-                type="text"
+              <select
                 value={filterValue}
                 onChange={(e) => setFilterValue(e.target.value)}
-                placeholder="e.g. Antibiotics, Cardiovascular, Antidiabetic"
                 required
                 className="w-full px-3 py-2 text-xs rounded-xl border border-blue-200 bg-slate-50 min-h-[44px]"
-              />
+              >
+                <option value="" disabled>
+                  Select a medicine category
+                </option>
+                {MEDICINE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
