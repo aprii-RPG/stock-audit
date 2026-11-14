@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import {
   Search,
   ScanBarcode,
@@ -11,9 +11,12 @@ import {
   Sparkles,
   ArrowLeft,
   Building,
+  ChevronLeft,
 } from 'lucide-react';
 import type { Audit, AuditItem } from '../../types';
 import { StatusChip } from '../common/StatusChip';
+
+const ITEMS_PER_PAGE = 50;
 
 interface ProductListScreenProps {
   audit: Audit;
@@ -36,12 +39,14 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChip, setFilterChip] = useState<'All' | 'Pending' | 'Recount' | 'Done'>('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   // Filter items based on search and status filter chips
   const filteredItems = useMemo(() => {
+    const q = deferredSearchQuery.toLowerCase().trim();
     return items.filter((item) => {
       // Search matching: name, company, pack, barcode, bin
-      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
         item.product.name.toLowerCase().includes(q) ||
@@ -65,7 +70,21 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 
       return true;
     });
-  }, [items, searchQuery, filterChip]);
+  }, [items, deferredSearchQuery, filterChip]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const visibleItems = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredItems.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredItems, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [audit.id, deferredSearchQuery, filterChip]);
+
+  useEffect(() => {
+    if (currentPage > pageCount) setCurrentPage(pageCount);
+  }, [currentPage, pageCount]);
 
   // Counts for filter chips
   const counts = useMemo(() => {
@@ -199,7 +218,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
             </p>
           </div>
         ) : (
-          filteredItems.map((item) => {
+          visibleItems.map((item) => {
             const isSelected = selectedItem?.id === item.id;
             const hasBin = Boolean(item.bin && item.bin.trim().length > 0);
 
@@ -252,6 +271,39 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
               </div>
             );
           })
+        )}
+        {filteredItems.length > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2">
+            <p className="text-[11px] font-medium text-slate-600">
+              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                aria-label="Previous product page"
+                className="inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-blue-200 px-2.5 text-xs font-bold text-[#0B3D91] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </button>
+              <span className="text-xs font-semibold text-slate-600">
+                {currentPage} / {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
+                disabled={currentPage >= pageCount}
+                aria-label="Next product page"
+                className="inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-blue-200 px-2.5 text-xs font-bold text-[#0B3D91] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
