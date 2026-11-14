@@ -2,6 +2,7 @@
 import pool from "../lib/db.js";
 import { requireUser, logAction } from "../lib/auth.js";
 import { ITEM_SELECT, toAuditItem } from "../lib/mappers.js";
+import { deleteObject } from "../lib/r2.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -9,13 +10,22 @@ export default async function handler(req, res) {
     const user = await requireUser(req, res, ["auditor", "back office", "admin"]);
     if (!user) return;
 
-    const { auditId, productId, binName } = req.body || {};
+    const { auditId, productId, binName, zeroStockNoPhoto = false } = req.body || {};
     const count = Number(req.body?.physicalCount);
     if (!auditId || !productId) {
       return res.status(400).json({ error: "auditId and productId are required." });
     }
     if (!Number.isFinite(count) || count < 0 || count > 1000000) {
       return res.status(400).json({ error: "Enter a valid count." });
+    }
+    if (typeof zeroStockNoPhoto !== "boolean") {
+      return res.status(400).json({ error: "Invalid zero-stock submission." });
+    }
+    if (zeroStockNoPhoto && user.role !== "auditor") {
+      return res.status(403).json({ error: "Only auditors can submit zero stock without a photo." });
+    }
+    if (zeroStockNoPhoto && count !== 0) {
+      return res.status(400).json({ error: "Zero-stock submission requires a count of zero." });
     }
     const bin = typeof binName === "string" ? binName.trim().slice(0, 40) : null;
 
@@ -60,7 +70,10 @@ export default async function handler(req, res) {
     const diff = count - expected;
     const diffValue = Math.abs(diff) * (Number(row.unit_price) || 0);
     const autoApproved =
-      Math.abs(diff) <= tolUnits && diffValue <= tolValue && row.photo_status === "approved";
+      !zeroStockNoPhoto &&
+      Math.abs(diff) <= tolUnits &&
+      diffValue <= tolValue &&
+      row.photo_status === "approved";
 
     const wasRecount = row.status === "recount";
     await pool.query(
@@ -70,6 +83,16 @@ export default async function handler(req, res) {
          counted_by_user_id = $4,
          bin = COALESCE($5::text, bin),
          status = $6,
+         photo_url = CASE WHEN $9::boolean THEN NULL ELSE photo_url END,
+         photo_source = CASE WHEN $9::boolean THEN NULL ELSE photo_source END,
+         photo_captured_at = CASE WHEN $9::boolean THEN NULL ELSE photo_captured_at END,
+         photo_gps_lat = CASE WHEN $9::boolean THEN NULL ELSE photo_gps_lat END,
+         photo_gps_lng = CASE WHEN $9::boolean THEN NULL ELSE photo_gps_lng END,
+         photo_gps_accuracy = CASE WHEN $9::boolean THEN NULL ELSE photo_gps_accuracy END,
+         photo_distance_from_store_m = CASE WHEN $9::boolean THEN NULL ELSE photo_distance_from_store_m END,
+         photo_within_window = CASE WHEN $9::boolean THEN NULL ELSE photo_within_window END,
+         photo_status = CASE WHEN $9::boolean THEN 'none' ELSE photo_status END,
+         photo_reject_reason = CASE WHEN $9::boolean THEN NULL ELSE photo_reject_reason END,
          recount_count = CASE WHEN $7::boolean THEN $3::numeric ELSE recount_count END,
          recounted_by_user_id = CASE WHEN $7::boolean THEN $4 ELSE recounted_by_user_id END,
          approved_by_name = CASE WHEN $8::boolean THEN 'Auto-Tolerance Engine' ELSE approved_by_name END,
@@ -85,12 +108,14 @@ export default async function handler(req, res) {
         autoApproved ? "approved" : "awaiting_approval",
         wasRecount,
         autoApproved,
+        zeroStockNoPhoto,
       ]
     );
+    if (zeroStockNoPhoto && row.photo_url) await deleteObject(row.photo_url);
 
     await logAction(pool, user, {
-      action: "COUNT_SAVED",
-      details: `Count ${count} saved for ${row.product_name}. Status: ${
+      action: zeroStockNoPhoto ? "ZERO_STOCK_REPORTED" : "COUNT_SAVED",
+      details: `${zeroStockNoPhoto ? "Zero stock reported without a photo" : `Count ${count} saved`} for ${row.product_name}. Status: ${
         autoApproved ? "approved" : "awaiting_approval"
       }`,
       auditId,

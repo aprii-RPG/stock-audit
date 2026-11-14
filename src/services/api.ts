@@ -344,6 +344,7 @@ export const api = {
     productId: string;
     physicalCount: number;
     binName?: string;
+    zeroStockNoPhoto?: boolean;
   }): Promise<{ item: AuditItem; autoApproved: boolean; offlineQueued: boolean }> {
     const res = await fetch('/api/save-count', {
       method: 'POST',

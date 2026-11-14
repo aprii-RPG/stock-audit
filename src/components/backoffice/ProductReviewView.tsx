@@ -835,17 +835,24 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                       : 'Approve'}
                   </span>
                 </button>
-                {selectedItem.physicalCount === 0 && (
-                  <button
-                    type="button"
-                    disabled={isSubmitting || selectedItem.status === 'approved'}
-                    onClick={handleApproveZeroStock}
-                    className="flex-1 min-w-[150px] py-3 px-3 rounded-xl bg-indigo-700 hover:bg-indigo-600 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-700/20 min-h-[46px]"
-                  >
-                    <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-                    <span>{isSubmitting ? 'Approving...' : 'Approve Zero Stock'}</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={
+                    isSubmitting ||
+                    selectedItem.status === 'approved' ||
+                    selectedItem.physicalCount !== 0
+                  }
+                  onClick={handleApproveZeroStock}
+                  title={
+                    selectedItem.physicalCount !== 0
+                      ? 'Save a physical count of 0 before approving zero stock.'
+                      : 'Approve this product with zero physical stock.'
+                  }
+                  className="flex-1 min-w-[150px] py-3 px-3 rounded-xl bg-indigo-700 hover:bg-indigo-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-700/20 min-h-[46px]"
+                >
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                  <span>{isSubmitting ? 'Approving...' : 'Approve Zero Stock'}</span>
+                </button>
               </div>
             )}
           </div>

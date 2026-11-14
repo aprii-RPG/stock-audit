@@ -22,7 +22,7 @@ interface BlindCountScreenProps {
   audit: Audit;
   item: AuditItem;
   existingBins: string[];
-  onSaveCount: (count: number, binName?: string) => Promise<void>;
+  onSaveCount: (count: number, binName?: string, zeroStockNoPhoto?: boolean) => Promise<void>;
   onOpenPhotoCapture: () => void;
   onNextProduct: () => void;
   onSuggestNewBin: (binName: string) => Promise<void>;
@@ -73,10 +73,26 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
         onNextProduct();
       }, 500);
     } catch (e) {
-  alert(e instanceof Error ? e.message : 'Count save nahi hua.');
+      alert(e instanceof Error ? e.message : 'Count save nahi hua.');
     } finally {
       setIsSaving(false);
     } 
+  };
+
+  const handleSubmitZeroStock = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveCount(0, selectedBin, true);
+      setSaveSuccessNotice(true);
+      setTimeout(() => {
+        setSaveSuccessNotice(false);
+        onNextProduct();
+      }, 500);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Zero-stock count save nahi hua.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddBinSubmit = async (e: React.FormEvent) => {
@@ -303,7 +319,20 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
           </div>
         </div>
 
-        {/* Photo Status Banner & Trigger */}
+        {/* Zero-stock reports do not require a photo; all other counts retain photo verification. */}
+        {count === 0 ? (
+          <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 shadow-xs flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <Check className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-emerald-900">Zero stock: no photo needed</p>
+              <p className="text-[11px] text-emerald-800">
+                Back Office must approve the zero-stock report.
+              </p>
+            </div>
+          </div>
+        ) : (
         <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-xs flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div
@@ -342,6 +371,7 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
             <span>{item.photoUrl ? 'Retake Photo' : 'Take Photo'}</span>
           </button>
         </div>
+        )}
 
         {/* Bottom Actions: Save and next product */}
         <div className="pt-2 pb-6 space-y-2">
@@ -361,6 +391,18 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
               </>
             )}
           </button>
+
+          {count === 0 && (
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={handleSubmitZeroStock}
+              className="w-full py-3 px-4 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed text-emerald-900 font-bold text-sm shadow-xs transition flex items-center justify-center gap-2 min-h-[48px]"
+            >
+              <Check className="w-5 h-5" />
+              <span>{isSaving ? 'Submitting zero stock...' : 'Submit Zero Stock (No Photo)'}</span>
+            </button>
+          )}
 
           {saveSuccessNotice && (
             <p className="text-center text-xs font-bold text-emerald-600 animate-in fade-in flex items-center justify-center gap-1">

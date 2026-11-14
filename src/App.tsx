@@ -199,13 +199,18 @@ export default function App() {
   };
 
   // Auditor Actions
-  const handleSaveCount = async (count: number, binName?: string) => {
+  const handleSaveCount = async (
+    count: number,
+    binName?: string,
+    zeroStockNoPhoto = false
+  ) => {
     if (!activeAudit || !selectedAuditItem) return;
     await api.saveCount({
       auditId: activeAudit.id,
       productId: selectedAuditItem.productId,
       physicalCount: count,
       binName,
+      zeroStockNoPhoto,
     });
     await refreshData();
   };

@@ -39,8 +39,7 @@ export const AuditProgressScreen: React.FC<AuditProgressScreenProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Business rule calculation:
-  // "A product counts as audited only when the count is saved AND its photo is approved (or skipped)."
+  // Zero-stock counts can be submitted without photos, but still require back-office approval.
   const auditedItems = items.filter(
     (i) => (i.physicalCount !== undefined && i.photoStatus === 'approved') || i.status === 'skipped'
   );
@@ -120,7 +119,7 @@ export const AuditProgressScreen: React.FC<AuditProgressScreenProps> = ({
             <span className="text-sm font-semibold text-slate-400 ml-1">/ {items.length}</span>
           </p>
           <p className="text-[11px] text-slate-500 mt-1">
-            Count saved + photo approved
+            Count saved and approved by Back Office
           </p>
         </div>
 
@@ -178,8 +177,7 @@ export const AuditProgressScreen: React.FC<AuditProgressScreenProps> = ({
         <div className="text-xs text-slate-600 bg-blue-50/60 p-3 rounded-xl border border-blue-100 flex items-start gap-2">
           <ShieldCheck className="w-4 h-4 text-[#1D5FD1] shrink-0 mt-0.5" />
           <p>
-            <strong>Strict Business Rule:</strong> A product counts as audited only when the count is saved{' '}
-            <strong>AND</strong> its photo is approved. An audit cannot be submitted while any product is pending unless Back Office authorizes an approved skip reason.
+            <strong>Review rule:</strong> Counts normally require photo approval. Auditors may submit a zero-stock count without a photo, but Back Office must still approve it. An audit cannot be submitted while any product is awaiting approval, recount, or an authorized skip.
           </p>
         </div>
       </div>
@@ -290,7 +288,7 @@ export const AuditProgressScreen: React.FC<AuditProgressScreenProps> = ({
 
         {!isAuditComplete && audit.status !== 'completed' && (
           <p className="text-center text-xs text-slate-400 mt-2 font-medium">
-            Submit button activates when all products are counted and photos approved.
+            Submit button activates after all counts and photo reviews are complete and Back Office approvals are done. Zero-stock submissions do not need a photo but still need Back Office approval.
           </p>
         )}
       </div>
