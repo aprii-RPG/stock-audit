@@ -80,6 +80,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'DISCREPANCY' | 'MATCH'>('ALL');
+  const [physicalQuantityFilterEnabled, setPhysicalQuantityFilterEnabled] = useState(false);
   const [exactPhysicalQuantity, setExactPhysicalQuantity] = useState('');
   const [submittedFromDate, setSubmittedFromDate] = useState('');
   const [submittedToDate, setSubmittedToDate] = useState('');
@@ -275,7 +276,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       if (varianceFilter === 'MATCH' && disc.difference !== 0) return false;
     }
 
-    if (exactPhysicalQuantity.trim() !== '') {
+    if (physicalQuantityFilterEnabled && exactPhysicalQuantity.trim() !== '') {
       const quantity = Number(exactPhysicalQuantity);
       if (!Number.isFinite(quantity) || item.physicalCount !== quantity) return false;
     }
@@ -437,41 +438,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
         </div>
       </div>
 
-      <section
-        aria-label="Physical quantity filter"
-        className="flex flex-col gap-2 rounded-xl border-2 border-blue-300 bg-blue-50 p-4 sm:flex-row sm:items-center"
-      >
-        <label
-          htmlFor="physical-quantity-search"
-          className="text-sm font-bold text-[#0B3D91]"
-        >
-          Filter by Physical Quantity
-        </label>
-        <input
-          id="physical-quantity-search"
-          type="number"
-          min="0"
-          step="any"
-          value={exactPhysicalQuantity}
-          onChange={(event) => setExactPhysicalQuantity(event.target.value)}
-          aria-label="Enter physical quantity to filter"
-          placeholder="Enter quantity (e.g. 0 or 1.5)"
-          className="min-h-[44px] w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm sm:w-64"
-        />
-        {exactPhysicalQuantity !== '' && (
-          <button
-            type="button"
-            onClick={() => setExactPhysicalQuantity('')}
-            className="min-h-[40px] rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-[#0B3D91] hover:bg-blue-100"
-          >
-            Clear
-          </button>
-        )}
-        <p className="text-[11px] text-slate-600 sm:ml-auto">
-          Shows products with this exact saved quantity.
-        </p>
-      </section>
-
       {activeAudit && (
         <section
           aria-label="Audit product progress"
@@ -508,7 +474,37 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   <th className="py-3 px-3">Bin</th>
                   <th className="py-3 px-3 text-right">Snapshot Qty</th>
                   <th className="py-3 px-3 text-right">Sales Post-Cutoff</th>
-                  <th className="py-3 px-3 text-right">Physical</th>
+                  <th className="py-3 px-3 text-right">
+                    <div className="flex flex-col items-end gap-1">
+                      <label className="inline-flex cursor-pointer items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={physicalQuantityFilterEnabled}
+                          onChange={(event) => {
+                            setPhysicalQuantityFilterEnabled(event.target.checked);
+                            if (!event.target.checked) setExactPhysicalQuantity('');
+                          }}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label="Enable physical quantity filter"
+                          className="rounded border-slate-300 text-[#1D5FD1] focus:ring-[#1D5FD1]"
+                        />
+                        <span>Physical</span>
+                      </label>
+                      {physicalQuantityFilterEnabled && (
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={exactPhysicalQuantity}
+                          onChange={(event) => setExactPhysicalQuantity(event.target.value)}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label="Filter by exact physical quantity"
+                          placeholder="Enter qty"
+                          className="w-24 rounded-md border border-blue-200 bg-white px-2 py-1 text-right text-[11px] font-normal normal-case tracking-normal"
+                        />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3 px-3 text-center">Submitted At</th>
                   <th className="py-3 px-3 text-center">Final Difference</th>
                   <th className="py-3 px-3 text-right">Value (INR)</th>
