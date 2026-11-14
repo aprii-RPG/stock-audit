@@ -23,6 +23,7 @@ import type {
   AuditItem,
   CutoffBillItem,
   DifferenceReason,
+  AuditLogEntry,
   Store,
   User,
 } from '../../types';
@@ -38,6 +39,7 @@ interface ProductReviewViewProps {
   items: AuditItem[];
   stores: Store[];
   users: User[];
+  logs: AuditLogEntry[];
   cutoffBillsMap: Record<string, CutoffBillItem[]>;
   onApproveProduct: (
     itemId: string,
@@ -60,6 +62,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   items,
   stores,
   users,
+  logs,
   cutoffBillsMap,
   onApproveProduct,
   onSendToRecount,
@@ -193,13 +196,18 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       : [];
 
   const selectedItemDisc = selectedItem ? calculateAuditDiscrepancy(selectedItem) : null;
-  const submittedAt = activeAudit?.completedAt
+  const submittedAtValue =
+    activeAudit?.completedAt ||
+    logs
+      .filter((log) => log.auditId === activeAudit?.id && log.action === 'AUDIT_CLOSED')
+      .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))[0]?.timestamp;
+  const submittedAt = submittedAtValue
     ? new Intl.DateTimeFormat('en-IN', {
         dateStyle: 'medium',
         timeStyle: 'short',
         timeZone: 'Asia/Kolkata',
-      }).format(new Date(activeAudit.completedAt))
-    : '—';
+      }).format(new Date(submittedAtValue))
+    : 'Unavailable';
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">

@@ -519,6 +519,7 @@ export default function App() {
                   items={items}
                   stores={stores}
                   users={allUsers}
+                  logs={logs}
                   cutoffBillsMap={cutoffBillsMap}
                   onApproveProduct={handleApproveProduct}
                   onSendToRecount={handleSendToRecount}

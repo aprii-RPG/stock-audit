@@ -279,7 +279,12 @@ export const api = {
       const res = await fetch('/api/audits' + qs);
       if (res.ok) {
         const data = await res.json();
-        return data.audits as Audit[];
+        const cachedAudits = readStorage<Audit[]>(STORAGE_KEYS.AUDITS, []);
+        const cachedById = new Map(cachedAudits.map((audit) => [audit.id, audit]));
+        return (data.audits as Audit[]).map((audit) => ({
+          ...audit,
+          completedAt: audit.completedAt || cachedById.get(audit.id)?.completedAt,
+        }));
       }
     } catch { /* offline */ }
     return [];
