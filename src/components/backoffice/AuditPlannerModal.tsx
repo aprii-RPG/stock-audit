@@ -54,6 +54,7 @@ interface AuditPlannerModalProps {
     assignedBackOfficeIds: string[];
     productSelectionType: 'all' | 'category' | 'company' | 'not_audited_days';
     filterValue?: string;
+    categoryValues?: string[];
     productLimit?: number;
     notes?: string;
   }) => Promise<void>;
@@ -72,6 +73,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
     'all' | 'category' | 'company' | 'not_audited_days'
   >('all');
   const [filterValue, setFilterValue] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [productLimit, setProductLimit] = useState('10');
   const [assignedAuditorIds, setAssignedAuditorIds] = useState<string[]>([]);
   const [auditorSearch, setAuditorSearch] = useState('');
@@ -105,11 +107,12 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
     }
     if (
       productSelectionType === 'category' &&
-      (!Number.isInteger(Number(productLimit)) ||
+      (selectedCategories.length === 0 ||
+        !Number.isInteger(Number(productLimit)) ||
         Number(productLimit) < 1 ||
         Number(productLimit) > 1000000)
     ) {
-      alert('Enter how many products to include from this category (1 to 1,000,000).');
+      alert('Select at least one category and enter how many products to include (1 to 1,000,000).');
       return;
     }
     setIsSubmitting(true);
@@ -122,6 +125,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
         assignedBackOfficeIds,
         productSelectionType,
         filterValue,
+        categoryValues: productSelectionType === 'category' ? selectedCategories : undefined,
         productLimit: productSelectionType === 'category' ? Number(productLimit) : undefined,
         notes,
       });
@@ -265,23 +269,32 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Category Name
+                  Category Name(s)
                 </label>
-                <select
-                  value={filterValue}
-                  onChange={(e) => setFilterValue(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-blue-200 bg-slate-50 min-h-[44px]"
-                >
-                  <option value="" disabled>
-                    Select a medicine category
-                  </option>
+                <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-blue-200 bg-slate-50 p-2">
                   {MEDICINE_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+                    <label key={category} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-blue-50">
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.includes(category)}
+                        onChange={() =>
+                          setSelectedCategories((current) =>
+                            current.includes(category)
+                              ? current.filter((value) => value !== category)
+                              : [...current, category]
+                          )
+                        }
+                        className="rounded border-blue-300 text-[#1D5FD1] focus:ring-[#1D5FD1]"
+                      />
+                      <span>{category}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {selectedCategories.length
+                    ? `${selectedCategories.length} categor${selectedCategories.length === 1 ? 'y' : 'ies'} selected`
+                    : 'Select one or more categories.'}
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">

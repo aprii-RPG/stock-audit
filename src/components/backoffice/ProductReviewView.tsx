@@ -463,6 +463,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
               <thead className="bg-[#F7FAFF] text-slate-600 text-[11px] font-bold uppercase tracking-wider border-b border-blue-100">
                 <tr>
                   <th className="py-3 px-3">Product</th>
+                  <th className="py-3 px-3">Auditor</th>
                   <th className="py-3 px-3">Bin</th>
                   <th className="py-3 px-3 text-right">Snapshot Qty</th>
                   <th className="py-3 px-3 text-right">Sales Post-Cutoff</th>
@@ -499,6 +500,11 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                             {item.product.pack} • {item.product.company}
                           </p>
                         </div>
+                      </td>
+
+                      {/* Assigned count submitter */}
+                      <td className="py-3 px-3 text-xs text-slate-700 whitespace-nowrap">
+                        {item.countedByUserName || 'Not submitted'}
                       </td>
 
                       {/* Bin */}

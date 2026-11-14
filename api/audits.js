@@ -60,9 +60,13 @@ export default async function handler(req, res) {
       const backs = Array.isArray(b.assignedBackOfficeIds) ? b.assignedBackOfficeIds : [];
       if (
         b.productSelectionType === "category" &&
-        (typeof b.filterValue !== "string" || !b.filterValue.trim())
+        (!Array.isArray(b.categoryValues) ||
+          b.categoryValues.length === 0 ||
+          b.categoryValues.length > 27 ||
+          b.categoryValues.some((category) => typeof category !== "string" || !category.trim()) ||
+          new Set(b.categoryValues).size !== b.categoryValues.length)
       ) {
-        return res.status(400).json({ error: "Select a product category." });
+        return res.status(400).json({ error: "Select one or more valid product categories." });
       }
       if (
         b.productSelectionType === "category" &&
@@ -91,7 +95,10 @@ export default async function handler(req, res) {
         }
         const params = [id, store.id];
         let extra = "";
-        if (b.productSelectionType === "category" && b.filterValue) { params.push(b.filterValue); extra = " AND p.category = $3"; }
+        if (b.productSelectionType === "category") {
+          params.push(b.categoryValues);
+          extra = " AND p.category = ANY($3::text[])";
+        }
         else if (b.productSelectionType === "company" && b.filterValue) { params.push(b.filterValue); extra = " AND p.company = $3"; }
         if (b.productSelectionType === "category") {
           params.push(b.productLimit);
