@@ -244,6 +244,15 @@ export default function App() {
     return approvedItem;
   };
 
+  const handleUpdatePhysicalQuantity = async (itemId: string, physicalCount: number) => {
+    const updatedItem = await api.updatePhysicalQuantity(itemId, physicalCount);
+    setItems((currentItems) =>
+      currentItems.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+    );
+    await refreshData();
+    return updatedItem;
+  };
+
   const handleSendToRecount = async (
     auditId: string,
     productId: string,
@@ -519,8 +528,10 @@ export default function App() {
                   items={items}
                   stores={stores}
                   users={allUsers}
+                  canEditPhysicalQuantity={['admin', 'back office'].includes(String(currentUser?.role).trim().toLowerCase())}
                   cutoffBillsMap={cutoffBillsMap}
                   onApproveProduct={handleApproveProduct}
+                  onUpdatePhysicalQuantity={handleUpdatePhysicalQuantity}
                   onSendToRecount={handleSendToRecount}
                   onOpenAuditPlanner={() => setShowPlannerModal(true)}
                 />

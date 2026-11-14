@@ -38,12 +38,14 @@ interface ProductReviewViewProps {
   items: AuditItem[];
   stores: Store[];
   users: User[];
+  canEditPhysicalQuantity: boolean;
   cutoffBillsMap: Record<string, CutoffBillItem[]>;
   onApproveProduct: (
     itemId: string,
     reason: DifferenceReason,
     note?: string
   ) => Promise<AuditItem>;
+  onUpdatePhysicalQuantity: (itemId: string, physicalCount: number) => Promise<AuditItem>;
   onSendToRecount: (
     auditId: string,
     productId: string,
@@ -60,8 +62,10 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   items,
   stores,
   users,
+  canEditPhysicalQuantity,
   cutoffBillsMap,
   onApproveProduct,
+  onUpdatePhysicalQuantity,
   onSendToRecount,
   onOpenAuditPlanner,
 }) => {
@@ -80,6 +84,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [physicalQuantityInput, setPhysicalQuantityInput] = useState('');
+  const [isSavingPhysicalQuantity, setIsSavingPhysicalQuantity] = useState(false);
 
   const activeAudit = audits.find((a) => a.id === selectedAuditId) || audits[0];
 
@@ -99,6 +105,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   // Sync item selection
   const handleSelectRow = (item: AuditItem) => {
     setSelectedItem(item);
+    setPhysicalQuantityInput(item.physicalCount === undefined ? '' : String(item.physicalCount));
     setSelectedReason(item.differenceReason || 'none');
     setReasonNote(item.differenceReasonNote || '');
     setShowRecountForm(false);
@@ -111,6 +118,34 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     );
     setRecountAssigneeId(differentUser?.id || users[1]?.id || '');
     setRecountNote('');
+  };
+
+  const handleUpdatePhysicalQuantity = async () => {
+    if (!selectedItem) return;
+    if (physicalQuantityInput.trim() === '') {
+      setActionError('Enter a physical quantity.');
+      return;
+    }
+    const physicalCount = Number(physicalQuantityInput);
+    if (!Number.isFinite(physicalCount) || physicalCount < 0 || physicalCount > 1000000) {
+      setActionError('Enter a valid physical quantity between 0 and 1,000,000.');
+      return;
+    }
+
+    setIsSavingPhysicalQuantity(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const updatedItem = await onUpdatePhysicalQuantity(selectedItem.id, physicalCount);
+      setSelectedItem(updatedItem);
+      setPhysicalQuantityInput(String(updatedItem.physicalCount ?? ''));
+      setActionSuccess('Physical quantity updated. The item is now awaiting approval.');
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsSavingPhysicalQuantity(false);
+    }
   };
 
   const handleApprove = async () => {
@@ -474,6 +509,44 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                 </span>
               </div>
             </div>
+
+            {canEditPhysicalQuantity && (
+              <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                <label
+                  htmlFor="edit-physical-quantity"
+                  className="block text-xs font-bold uppercase tracking-wider text-amber-900"
+                >
+                  Edit Physical Quantity
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="edit-physical-quantity"
+                    type="number"
+                    min="0"
+                    max="1000000"
+                    step="any"
+                    value={physicalQuantityInput}
+                    onChange={(event) => setPhysicalQuantityInput(event.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUpdatePhysicalQuantity}
+                    disabled={
+                      isSavingPhysicalQuantity ||
+                      physicalQuantityInput.trim() === '' ||
+                      Number(physicalQuantityInput) === selectedItem.physicalCount
+                    }
+                    className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isSavingPhysicalQuantity ? 'Saving...' : 'Save Qty'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-800">
+                  Saving a changed quantity resets the item to Awaiting Approval.
+                </p>
+              </div>
+            )}
 
             {/* Reconciliation Math Formula Box */}
             {selectedItemDisc && (

@@ -377,6 +377,17 @@ export const api = {
     return data.item as AuditItem;
   },
 
+  async updatePhysicalQuantity(itemId: string, physicalCount: number): Promise<AuditItem> {
+    const res = await fetch('/api/update-physical-quantity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, physicalCount }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not update the physical quantity.');
+    return data.item as AuditItem;
+  },
+
   async sendToRecount(
     auditId: string,
     productId: string,
