@@ -80,6 +80,10 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'DISCREPANCY' | 'MATCH'>('ALL');
+  const [physicalQuantityFilter, setPhysicalQuantityFilter] = useState<
+    'ALL' | 'ZERO' | 'POSITIVE' | 'NOT_COUNTED' | 'EXACT'
+  >('ALL');
+  const [exactPhysicalQuantity, setExactPhysicalQuantity] = useState('');
   const [submittedFromDate, setSubmittedFromDate] = useState('');
   const [submittedToDate, setSubmittedToDate] = useState('');
 
@@ -274,6 +278,18 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       if (varianceFilter === 'MATCH' && disc.difference !== 0) return false;
     }
 
+    if (physicalQuantityFilter === 'ZERO' && item.physicalCount !== 0) return false;
+    if (
+      physicalQuantityFilter === 'POSITIVE' &&
+      (item.physicalCount === undefined || item.physicalCount <= 0)
+    ) return false;
+    if (physicalQuantityFilter === 'NOT_COUNTED' && item.physicalCount !== undefined) return false;
+    if (physicalQuantityFilter === 'EXACT') {
+      if (exactPhysicalQuantity.trim() === '' || item.physicalCount !== Number(exactPhysicalQuantity)) {
+        return false;
+      }
+    }
+
     if (submittedFromDate || submittedToDate) {
       if (!item.countSavedAt) return false;
       const parts = new Intl.DateTimeFormat('en-US', {
@@ -392,6 +408,37 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           <option value="DISCREPANCY">Discrepancies Only (▲ / ▼)</option>
           <option value="MATCH">Zero Variance (Exact Match)</option>
         </select>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={physicalQuantityFilter}
+            onChange={(event) =>
+              setPhysicalQuantityFilter(
+                event.target.value as 'ALL' | 'ZERO' | 'POSITIVE' | 'NOT_COUNTED' | 'EXACT'
+              )
+            }
+            aria-label="Filter by physical quantity"
+            className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 min-h-[40px]"
+          >
+            <option value="ALL">All Physical Quantities</option>
+            <option value="ZERO">Physical Qty: 0</option>
+            <option value="POSITIVE">Physical Qty: Above 0</option>
+            <option value="NOT_COUNTED">Physical Qty: Not Counted</option>
+            <option value="EXACT">Physical Qty: Exact Value</option>
+          </select>
+          {physicalQuantityFilter === 'EXACT' && (
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={exactPhysicalQuantity}
+              onChange={(event) => setExactPhysicalQuantity(event.target.value)}
+              aria-label="Exact physical quantity"
+              placeholder="Enter quantity"
+              className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs min-h-[40px]"
+            />
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
           <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">

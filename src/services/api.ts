@@ -312,6 +312,20 @@ export const api = {
     return data.audit as Audit;
   },
 
+  async getAuditCategoryProductCount(storeId: string, categories: string[]): Promise<number> {
+    const res = await fetch('/api/audit-category-counts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId, categories }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not load category product count.');
+    if (!Number.isInteger(data.total) || data.total < 0) {
+      throw new Error('Invalid category product count response.');
+    }
+    return data.total as number;
+  },
+
   async deleteAudit(auditId: string): Promise<void> {
     const res = await fetch('/api/audits', {
       method: 'DELETE',
