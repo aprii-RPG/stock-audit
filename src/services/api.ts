@@ -377,6 +377,13 @@ export const api = {
     return data.item as AuditItem;
   },
 
+  async syncApprovedProducts(): Promise<number> {
+    const res = await fetch('/api/sync-approved-products', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not sync approved products to Google Sheets.');
+    return Number(data.syncedCount) || 0;
+  },
+
   async sendToRecount(
     auditId: string,
     productId: string,
