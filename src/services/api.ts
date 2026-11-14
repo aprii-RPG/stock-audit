@@ -515,42 +515,22 @@ export const api = {
   },
 
   // Audit Closure validation
-  async submitAudit(auditId: string): Promise<{ success: boolean; message: string }> {
-    const items = await this.getAuditItems(auditId);
-    
-    // Business rule:
-    // A product counts as audited only when the count is saved AND its photo is approved (or skipped with authorized reason).
-    // An audit cannot be closed while any product is pending unless back office records an approved skip reason.
-    const pendingItems = items.filter(
-      (item) => item.status === 'not_started' || item.status === 'awaiting_approval' || item.status === 'recount'
-    );
-
-    if (pendingItems.length > 0) {
+  async submitAudit(
+    auditId: string
+  ): Promise<{ success: boolean; message: string; completedAt?: string }> {
+    const res = await fetch('/api/submit-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
       return {
         success: false,
-        message: `Cannot close audit: ${pendingItems.length} product(s) still pending review, recount, or photo approval. Authorized skip reason required for uncounted items.`,
+        message: data.error || 'Could not submit this audit.',
       };
     }
-
-    const audits = await this.getAudits();
-    const auditIdx = audits.findIndex((a) => a.id === auditId);
-    if (auditIdx >= 0) {
-      audits[auditIdx].status = 'completed';
-      audits[auditIdx].completedAt = new Date().toISOString();
-      writeStorage(STORAGE_KEYS.AUDITS, audits);
-    }
-
-    const currentUser = await this.getCurrentUser();
-    await this.logAction({
-      action: 'AUDIT_CLOSED',
-      details: `Audit ${audits[auditIdx]?.name || auditId} finalized and closed by ${currentUser?.name}`,
-      auditId,
-    });
-
-    return {
-      success: true,
-      message: 'Audit successfully finalized and submitted. All reconciliation vouchers generated.',
-    };
+    return data;
   },
 
   // Cutoff Bills Drilldown

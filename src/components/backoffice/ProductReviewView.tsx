@@ -193,6 +193,13 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       : [];
 
   const selectedItemDisc = selectedItem ? calculateAuditDiscrepancy(selectedItem) : null;
+  const submittedAt = activeAudit?.completedAt
+    ? new Intl.DateTimeFormat('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Asia/Kolkata',
+      }).format(new Date(activeAudit.completedAt))
+    : '—';
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
@@ -288,6 +295,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                   <th className="py-3 px-3 text-center">Final Difference</th>
                   <th className="py-3 px-3 text-right">Value (INR)</th>
                   <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-3 text-center whitespace-nowrap">Submitted At (IST)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -395,6 +403,9 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                         >
                           <StatusChip status={item.status} size="sm" />
                         </button>
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap text-[11px] text-slate-600">
+                        {submittedAt}
                       </td>
                     </tr>
                   );
