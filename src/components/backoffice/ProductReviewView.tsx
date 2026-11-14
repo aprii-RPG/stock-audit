@@ -80,6 +80,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'DISCREPANCY' | 'MATCH'>('ALL');
+  const [submittedFromDate, setSubmittedFromDate] = useState('');
+  const [submittedToDate, setSubmittedToDate] = useState('');
 
   // Side panel form states
   const [selectedReason, setSelectedReason] = useState<DifferenceReason>('none');
@@ -268,6 +270,20 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       if (varianceFilter === 'MATCH' && disc.difference !== 0) return false;
     }
 
+    if (submittedFromDate || submittedToDate) {
+      if (!item.countSavedAt) return false;
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(new Date(item.countSavedAt));
+      const dateParts = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+      const submittedDate = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+      if (submittedFromDate && submittedDate < submittedFromDate) return false;
+      if (submittedToDate && submittedDate > submittedToDate) return false;
+    }
+
     return true;
   });
 
@@ -372,6 +388,43 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           <option value="DISCREPANCY">Discrepancies Only (▲ / ▼)</option>
           <option value="MATCH">Zero Variance (Exact Match)</option>
         </select>
+
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            Submitted
+            <input
+              type="date"
+              aria-label="Submitted from date"
+              value={submittedFromDate}
+              max={submittedToDate || undefined}
+              onChange={(event) => setSubmittedFromDate(event.target.value)}
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+            />
+          </label>
+          <span className="text-xs text-slate-400">to</span>
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            <input
+              type="date"
+              aria-label="Submitted to date"
+              value={submittedToDate}
+              min={submittedFromDate || undefined}
+              onChange={(event) => setSubmittedToDate(event.target.value)}
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+            />
+          </label>
+          {(submittedFromDate || submittedToDate) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSubmittedFromDate('');
+                setSubmittedToDate('');
+              }}
+              className="rounded-md px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Table + Drilldown Side Panel */}
