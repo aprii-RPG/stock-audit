@@ -18,6 +18,7 @@ import {
   ChevronRight,
   HelpCircle,
   Plus,
+  Pencil,
 } from 'lucide-react';
 import type {
   Audit,
@@ -56,7 +57,7 @@ interface ProductReviewViewProps {
     note?: string
   ) => Promise<void>;
   onDeleteAudit: (auditId: string) => Promise<void>;
-  onOpenAuditPlanner: () => void;
+  onOpenAuditPlanner: (audit?: Audit) => void;
 }
 
 export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
@@ -339,6 +340,16 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {canDeleteAudit && activeAudit && activeAudit.status === 'in_progress' && (
+            <button
+              type="button"
+              onClick={() => onOpenAuditPlanner(activeAudit)}
+              className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#0B3D91] text-xs sm:text-sm font-bold transition min-h-[44px]"
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Update Planner</span>
+            </button>
+          )}
           {canDeleteAudit && activeAudit && (
             <button
               type="button"
@@ -351,7 +362,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
             </button>
           )}
           <button
-            onClick={onOpenAuditPlanner}
+            onClick={() => onOpenAuditPlanner()}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1D5FD1] hover:bg-[#0B3D91] text-white text-xs sm:text-sm font-bold transition shadow-xs min-h-[44px]"
           >
             <Plus className="w-4 h-4" />

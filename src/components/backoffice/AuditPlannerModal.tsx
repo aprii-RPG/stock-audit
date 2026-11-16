@@ -10,7 +10,7 @@ import {
   Lock,
   Search,
 } from 'lucide-react';
-import type { AuditType, Store, User } from '../../types';
+import type { Audit, AuditType, Store, User } from '../../types';
 import { api } from '../../services/api';
 
 const MEDICINE_CATEGORIES = [
@@ -46,6 +46,7 @@ const MEDICINE_CATEGORIES = [
 interface AuditPlannerModalProps {
   stores: Store[];
   users: User[];
+  audit?: Audit;
   onClose: () => void;
   onCreateAudit: (payload: {
     storeId: string;
@@ -59,17 +60,30 @@ interface AuditPlannerModalProps {
     productLimit?: number;
     notes?: string;
   }) => Promise<void>;
+  onUpdateAudit: (
+    auditId: string,
+    payload: {
+      type: AuditType;
+      date: string;
+      assignedAuditorIds: string[];
+      assignedBackOfficeIds: string[];
+      notes?: string;
+    }
+  ) => Promise<void>;
 }
 
 export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
   stores,
   users,
+  audit,
   onClose,
   onCreateAudit,
+  onUpdateAudit,
 }) => {
-  const [storeId, setStoreId] = useState(stores[0]?.id || '');
-  const [auditType, setAuditType] = useState<AuditType>('QUARTERLY FULL AUDIT');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const isEditing = Boolean(audit);
+  const [storeId, setStoreId] = useState(audit?.storeId || stores[0]?.id || '');
+  const [auditType, setAuditType] = useState<AuditType>(audit?.type || 'QUARTERLY FULL AUDIT');
+  const [date, setDate] = useState(audit?.date || new Date().toISOString().slice(0, 10));
   const [productSelectionType, setProductSelectionType] = useState<
     'all' | 'category' | 'company' | 'not_audited_days'
   >('all');
@@ -80,11 +94,12 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
   const [categoryCountError, setCategoryCountError] = useState<string | null>(null);
   const [isLoadingCategoryCount, setIsLoadingCategoryCount] = useState(false);
   const [productLimit, setProductLimit] = useState('10');
-  const [assignedAuditorIds, setAssignedAuditorIds] = useState<string[]>([]);
+  const [assignedAuditorIds, setAssignedAuditorIds] = useState<string[]>(audit?.assignedAuditorIds || []);
   const [auditorSearch, setAuditorSearch] = useState('');
-  const [assignedBackOfficeIds, setAssignedBackOfficeIds] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
+  const [assignedBackOfficeIds, setAssignedBackOfficeIds] = useState<string[]>(audit?.assignedBackOfficeIds || []);
+  const [notes, setNotes] = useState(audit?.notes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const selectedStore = stores.find((s) => s.id === storeId) || stores[0];
   const filteredAuditors = users.filter((user) => {
@@ -135,7 +150,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!storeId) {
+    if (!isEditing && !storeId) {
       alert('Please select a store branch.');
       return;
     }
@@ -154,20 +169,33 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
       return;
     }
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
-      await onCreateAudit({
-        storeId,
-        type: auditType,
-        date,
-        assignedAuditorIds,
-        assignedBackOfficeIds,
-        productSelectionType,
-        filterValue,
-        categoryValues: productSelectionType === 'category' ? selectedCategories : undefined,
-        productLimit: productSelectionType === 'category' ? Number(productLimit) : undefined,
-        notes,
-      });
+      if (audit) {
+        await onUpdateAudit(audit.id, {
+          type: auditType,
+          date,
+          assignedAuditorIds,
+          assignedBackOfficeIds,
+          notes,
+        });
+      } else {
+        await onCreateAudit({
+          storeId,
+          type: auditType,
+          date,
+          assignedAuditorIds,
+          assignedBackOfficeIds,
+          productSelectionType,
+          filterValue,
+          categoryValues: productSelectionType === 'category' ? selectedCategories : undefined,
+          productLimit: productSelectionType === 'category' ? Number(productLimit) : undefined,
+          notes,
+        });
+      }
       onClose();
+    } catch (error: unknown) {
+      setSubmitError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -196,10 +224,12 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
-                Plan New Stock Audit Cycle
+                {isEditing ? 'Update Stock Audit Planner' : 'Plan New Stock Audit Cycle'}
               </h3>
               <p className="text-xs text-blue-200">
-                Auto-generates standardized naming and snapshots cutoff bills.
+                {isEditing
+                  ? 'Update the active plan, assignments, and notes. The product list and locked snapshot stay unchanged.'
+                  : 'Auto-generates standardized naming and snapshots cutoff bills.'}
               </p>
             </div>
           </div>
@@ -237,6 +267,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
               <select
                 value={storeId}
                 onChange={(e) => setStoreId(e.target.value)}
+                disabled={isEditing}
                 className="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl border border-blue-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#1D5FD1] min-h-[44px]"
               >
                 <option value="" disabled>Select a store branch</option>
@@ -280,7 +311,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
               />
             </div>
 
-            <div>
+            {!isEditing && <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Product Selection Criteria
               </label>
@@ -299,11 +330,11 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
                 <option value="company">By Manufacturer / Company</option>
                 <option value="not_audited_days">Not Audited in &gt;60 Days</option>
               </select>
-            </div>
+            </div>}
           </div>
 
           {/* Conditional Filter Value input */}
-          {productSelectionType === 'category' && (
+          {!isEditing && productSelectionType === 'category' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -375,7 +406,7 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
             </div>
           )}
 
-          {productSelectionType === 'company' && (
+          {!isEditing && productSelectionType === 'company' && (
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 Company Name
@@ -481,11 +512,19 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
             />
           </div>
 
+          {submitError && (
+            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+              {submitError}
+            </p>
+          )}
+
           {/* Snapshot Lock Notice */}
           <div className="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs text-blue-900 flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#1D5FD1] shrink-0" />
             <span>
-              Creating this audit will immediately lock system ERP snapshot and capture the cutoff bill number.
+              {isEditing
+                ? 'Updating the planner will not change the locked ERP snapshot or products already assigned to this audit.'
+                : 'Creating this audit will immediately lock system ERP snapshot and capture the cutoff bill number.'}
             </span>
           </div>
 
@@ -503,7 +542,9 @@ export const AuditPlannerModal: React.FC<AuditPlannerModalProps> = ({
               disabled={isSubmitting}
               className="flex-1 py-3 px-4 rounded-xl bg-[#1D5FD1] hover:bg-[#0B3D91] text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-500/20 transition min-h-[48px]"
             >
-              {isSubmitting ? 'Initializing Cycle...' : 'Create Audit & Lock Snapshot'}
+              {isSubmitting
+                ? isEditing ? 'Saving Planner...' : 'Initializing Cycle...'
+                : isEditing ? 'Save Planner Updates' : 'Create Audit & Lock Snapshot'}
             </button>
           </div>
         </form>

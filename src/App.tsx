@@ -63,6 +63,7 @@ export default function App() {
   const [showPhotoModal, setShowPhotoModal] = useState<boolean>(false);
   const [showScannerModal, setShowScannerModal] = useState<boolean>(false);
   const [showPlannerModal, setShowPlannerModal] = useState<boolean>(false);
+  const [plannerAudit, setPlannerAudit] = useState<Audit | null>(null);
 
   // Sync state
   const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
@@ -297,6 +298,22 @@ export default function App() {
     const created = await api.createAudit(payload);
     await refreshData();
     setActiveAudit(created);
+    setBackOfficeTab('audits');
+  };
+
+  const handleUpdateAudit = async (
+    auditId: string,
+    payload: {
+      type: AuditType;
+      date: string;
+      assignedAuditorIds: string[];
+      assignedBackOfficeIds: string[];
+      notes?: string;
+    }
+  ) => {
+    const updated = await api.updateAudit(auditId, payload);
+    await refreshData();
+    setActiveAudit(updated);
     setBackOfficeTab('audits');
   };
 
@@ -551,7 +568,10 @@ export default function App() {
                   onUpdatePhysicalQuantity={handleUpdatePhysicalQuantity}
                   onSendToRecount={handleSendToRecount}
                   onDeleteAudit={handleDeleteAudit}
-                  onOpenAuditPlanner={() => setShowPlannerModal(true)}
+                  onOpenAuditPlanner={(audit) => {
+                    setPlannerAudit(audit || null);
+                    setShowPlannerModal(true);
+                  }}
                 />
               )}
 
@@ -638,8 +658,13 @@ export default function App() {
         <AuditPlannerModal
           stores={stores}
           users={allUsers}
-          onClose={() => setShowPlannerModal(false)}
+          audit={plannerAudit || undefined}
+          onClose={() => {
+            setShowPlannerModal(false);
+            setPlannerAudit(null);
+          }}
           onCreateAudit={handleCreateAudit}
+          onUpdateAudit={handleUpdateAudit}
         />
       )}
 

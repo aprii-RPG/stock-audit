@@ -312,6 +312,23 @@ export const api = {
     return data.audit as Audit;
   },
 
+  async updateAudit(auditId: string, payload: {
+    type: AuditType;
+    date: string;
+    assignedAuditorIds: string[];
+    assignedBackOfficeIds: string[];
+    notes?: string;
+  }): Promise<Audit> {
+    const res = await fetch('/api/audits', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId, ...payload }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not update audit planner.');
+    return data.audit as Audit;
+  },
+
   async getAuditCategoryProductCount(storeId: string, categories: string[]): Promise<number> {
     const res = await fetch('/api/audit-category-counts', {
       method: 'POST',

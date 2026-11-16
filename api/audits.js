@@ -128,6 +128,91 @@ export default async function handler(req, res) {
       return res.status(201).json({ audit });
     }
 
+    if (req.method === "PATCH") {
+      const user = await requireUser(req, res, ["admin", "back office"]);
+      if (!user) return;
+      const b = req.body || {};
+      const validTypes = [
+        "QUARTERLY FULL AUDIT",
+        "MONTHLY CYCLE COUNT",
+        "HIGH-VALUE NARCOTICS",
+        "SPOT RECOUNT",
+      ];
+      const isValidDate =
+        typeof b.date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(b.date) &&
+        !Number.isNaN(Date.parse(`${b.date}T00:00:00Z`)) &&
+        new Date(`${b.date}T00:00:00Z`).toISOString().slice(0, 10) === b.date;
+      if (
+        typeof b.auditId !== "string" ||
+        !b.auditId.trim() ||
+        !validTypes.includes(b.type) ||
+        !isValidDate ||
+        !Array.isArray(b.assignedAuditorIds) ||
+        b.assignedAuditorIds.length === 0 ||
+        !b.assignedAuditorIds.every((id) => typeof id === "string" && id.trim()) ||
+        !Array.isArray(b.assignedBackOfficeIds) ||
+        !b.assignedBackOfficeIds.every((id) => typeof id === "string" && id.trim()) ||
+        (b.notes !== undefined && typeof b.notes !== "string")
+      ) {
+        return res.status(400).json({ error: "Valid planner details and at least one auditor are required." });
+      }
+
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const result = await client.query(
+          `SELECT a.id, a.name, a.status, a.store_id, s.name AS store_name
+           FROM audits a JOIN stores s ON s.id = a.store_id
+           WHERE a.id = $1 FOR UPDATE`,
+          [b.auditId]
+        );
+        const audit = result.rows[0];
+        if (!audit) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ error: "Audit planner not found." });
+        }
+        if (audit.status !== "in_progress") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "Only an in-progress audit planner can be updated." });
+        }
+
+        const name = `${audit.store_name.split(" ")[0].toUpperCase()} / ${b.type} / ${b.date}`;
+        await client.query(
+          `UPDATE audits SET name = $2, type = $3, audit_date = $4, notes = $5 WHERE id = $1`,
+          [b.auditId, name, b.type, b.date, b.notes || null]
+        );
+        await client.query(`DELETE FROM audit_assignments WHERE audit_id = $1`, [b.auditId]);
+        for (const uid of [...new Set(b.assignedAuditorIds)]) {
+          await client.query(
+            `INSERT INTO audit_assignments (audit_id, user_id, assign_role) VALUES ($1,$2,'auditor')`,
+            [b.auditId, uid]
+          );
+        }
+        for (const uid of [...new Set(b.assignedBackOfficeIds)]) {
+          await client.query(
+            `INSERT INTO audit_assignments (audit_id, user_id, assign_role) VALUES ($1,$2,'back office')`,
+            [b.auditId, uid]
+          );
+        }
+        await logAction(client, user, {
+          action: "AUDIT_UPDATED",
+          auditId: b.auditId,
+          auditName: name,
+          details: `In-progress audit planner ${name} updated by ${user.name}.`,
+        });
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
+
+      const [updated] = await loadAudits("WHERE a.id = $1", [b.auditId]);
+      return res.status(200).json({ audit: updated });
+    }
+
     if (req.method === "DELETE") {
       const user = await requireUser(req, res, ["admin", "back office"]);
       if (!user) return;
