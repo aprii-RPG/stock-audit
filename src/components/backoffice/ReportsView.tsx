@@ -8,6 +8,7 @@ import {
   UserCheck,
   Package,
   Layers,
+  FileDown,
 } from 'lucide-react';
 import type { Audit, AuditItem, Product, Store, User } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
@@ -40,6 +41,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [activeReport, setActiveReport] = useState<ReportType>('no_bin');
   const [overdueDaysThreshold, setOverdueDaysThreshold] = useState<number>(60);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
+  const [isGeneratingVariancePdf, setIsGeneratingVariancePdf] = useState(false);
+  const [variancePdfError, setVariancePdfError] = useState<string | null>(null);
 
   // Helper to trigger CSV/Excel export
   const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -193,6 +196,179 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     downloadCSV('StockAudit_Repeat_Problem_Products', headers, rows);
   };
 
+  const exportVariancePdf = async () => {
+    setIsGeneratingVariancePdf(true);
+    setVariancePdfError(null);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const branchReports = new Map<string, {
+        branchName: string;
+        branchCode: string;
+        shortages: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[];
+        excesses: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[];
+      }>();
+
+      for (const item of items) {
+        if (item.physicalCount === undefined) continue;
+        const audit = audits.find((entry) => entry.id === item.auditId);
+        if (!audit) continue;
+        const discrepancy = calculateAuditDiscrepancy(item);
+        if (discrepancy.direction === 'balanced') continue;
+
+        const store = stores.find((entry) => entry.id === audit.storeId);
+        const branch = branchReports.get(audit.storeId) || {
+          branchName: store?.name || audit.storeName || 'Unknown Branch',
+          branchCode: store?.code || '',
+          shortages: [],
+          excesses: [],
+        };
+        const row = {
+          audit,
+          item,
+          expectedQty: discrepancy.expectedQty,
+          difference: discrepancy.difference,
+          value: discrepancy.differenceValue,
+        };
+        if (discrepancy.direction === 'short') branch.shortages.push(row);
+        else branch.excesses.push(row);
+        branchReports.set(audit.storeId, branch);
+      }
+
+      if (branchReports.size === 0) {
+        throw new Error('No counted shortage or excess products are available for this report.');
+      }
+
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 12;
+      const columns = [
+        { title: 'Product', x: 12, width: 82 },
+        { title: 'Audit Date', x: 97, width: 25 },
+        { title: 'Bin', x: 124, width: 25 },
+        { title: 'Expected', x: 151, width: 20 },
+        { title: 'Physical', x: 173, width: 21 },
+        { title: 'Variance', x: 196, width: 25 },
+        { title: 'Value (INR)', x: 223, width: 34 },
+        { title: 'Status', x: 260, width: 25 },
+      ];
+      const formatPdfMoney = (value: number) =>
+        `INR ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('Branch-wise Shortage & Excess Report', margin, 14);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text(`Generated ${new Date().toLocaleString('en-IN')}`, margin, 20);
+      pdf.text(`${branchReports.size} branch(es) with counted variance`, pageWidth - margin, 20, { align: 'right' });
+
+      let y = 30;
+      const drawTableHeader = () => {
+        pdf.setFillColor(11, 61, 145);
+        pdf.rect(margin, y - 5, pageWidth - margin * 2, 8, 'F');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(255, 255, 255);
+        for (const column of columns) {
+          pdf.text(column.title, column.x, y, { maxWidth: column.width });
+        }
+        pdf.setTextColor(30, 41, 59);
+        pdf.setFont('helvetica', 'normal');
+        y += 7;
+      };
+      const drawSectionTitle = (
+        branchName: string,
+        branchCode: string,
+        kind: 'shortage' | 'excess',
+        rows: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[],
+        continued = false
+      ) => {
+        if (y > pageHeight - 38) {
+          pdf.addPage();
+          y = 18;
+        }
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(11, 61, 145);
+        pdf.text(
+          `${branchCode ? `${branchCode} - ` : ''}${branchName}${continued ? ' (continued)' : ''}`,
+          margin,
+          y
+        );
+        y += 6;
+        const totalValue = rows.reduce((sum, row) => sum + row.value, 0);
+        const totalUnits = rows.reduce((sum, row) => sum + Math.abs(row.difference), 0);
+        pdf.setFontSize(9);
+        pdf.setTextColor(kind === 'shortage' ? 190 : 29, kind === 'shortage' ? 18 : 95, kind === 'shortage' ? 60 : 209);
+        pdf.text(
+          `${kind === 'shortage' ? 'SHORTAGE' : 'EXCESS'}: ${rows.length} product(s) | ${totalUnits.toLocaleString('en-IN')} units | ${formatPdfMoney(totalValue)}`,
+          margin,
+          y
+        );
+        y += 7;
+        drawTableHeader();
+      };
+
+      for (const branch of branchReports.values()) {
+        for (const [kind, rows] of [
+          ['shortage', branch.shortages],
+          ['excess', branch.excesses],
+        ] as const) {
+          if (rows.length === 0) continue;
+          rows.sort((a, b) => a.audit.date.localeCompare(b.audit.date) || a.item.product.name.localeCompare(b.item.product.name));
+          drawSectionTitle(branch.branchName, branch.branchCode, kind, rows);
+
+          for (const row of rows) {
+            const productText = pdf.splitTextToSize(
+              `${row.item.product.code} - ${row.item.product.name}\n${row.audit.name}`,
+              columns[0].width
+            ) as string[];
+            const binText = pdf.splitTextToSize(row.item.bin || '-', columns[2].width) as string[];
+            const statusText = pdf.splitTextToSize(row.item.status.replace(/_/g, ' '), columns[7].width) as string[];
+            const lineCount = Math.max(1, productText.length, binText.length, statusText.length);
+            const rowHeight = Math.max(7, lineCount * 3.8);
+            if (y + rowHeight > pageHeight - 12) {
+              pdf.addPage();
+              y = 18;
+              drawSectionTitle(branch.branchName, branch.branchCode, kind, rows, true);
+            }
+
+            pdf.setDrawColor(226, 232, 240);
+            pdf.line(margin, y + rowHeight - 1, pageWidth - margin, y + rowHeight - 1);
+            pdf.setFontSize(7);
+            pdf.setTextColor(30, 41, 59);
+            pdf.text(productText, columns[0].x, y + 2, { lineHeightFactor: 1.15 });
+            pdf.text(row.audit.date, columns[1].x, y + 2);
+            pdf.text(binText, columns[2].x, y + 2);
+            pdf.text(String(row.expectedQty), columns[3].x, y + 2);
+            pdf.text(String(row.item.physicalCount), columns[4].x, y + 2);
+            pdf.text(`${row.difference > 0 ? '+' : ''}${row.difference}`, columns[5].x, y + 2);
+            pdf.text(formatPdfMoney(row.value), columns[6].x, y + 2);
+            pdf.text(statusText, columns[7].x, y + 2);
+            y += rowHeight;
+          }
+          y += 8;
+        }
+      }
+
+      const pageCount = pdf.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        pdf.setPage(page);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+      }
+
+      pdf.save(`StockAudit_Shortage_Excess_By_Branch_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (error) {
+      console.error('Branch-wise shortage and excess PDF export failed', error);
+      setVariancePdfError(error instanceof Error ? error.message : 'Could not create the branch-wise PDF report.');
+    } finally {
+      setIsGeneratingVariancePdf(false);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -205,7 +381,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             Generate compliance reports, shrink analysis, auditor accuracy, and export Excel data.
           </p>
         </div>
-        <AuditedProductsExportButton audits={audits} items={items} stores={stores} />
+        <div className="flex flex-wrap items-start gap-2">
+          <AuditedProductsExportButton audits={audits} items={items} stores={stores} />
+          <div>
+            <button
+              type="button"
+              onClick={exportVariancePdf}
+              disabled={isGeneratingVariancePdf}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#0B3D91] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#082e6d] disabled:cursor-wait disabled:opacity-50 min-h-[42px]"
+            >
+              <FileDown className="h-4 w-4" />
+              <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Shortage & Excess PDF by Branch'}</span>
+            </button>
+            {variancePdfError && (
+              <p role="alert" className="mt-2 max-w-xs text-sm text-rose-700">
+                {variancePdfError}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Report Selection Tabs */}
