@@ -9,6 +9,7 @@ import {
   Package,
   Layers,
   FileDown,
+  X,
 } from 'lucide-react';
 import type { Audit, AuditItem, Product, Store, User } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
@@ -41,7 +42,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [activeReport, setActiveReport] = useState<ReportType>('no_bin');
   const [overdueDaysThreshold, setOverdueDaysThreshold] = useState<number>(60);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
-  const [selectedVarianceStoreId, setSelectedVarianceStoreId] = useState('');
+  const [showVarianceBranchPicker, setShowVarianceBranchPicker] = useState(false);
   const [isGeneratingVariancePdf, setIsGeneratingVariancePdf] = useState(false);
   const [variancePdfError, setVariancePdfError] = useState<string | null>(null);
   const storesWithVariance = useMemo(() => {
@@ -209,13 +210,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     downloadCSV('StockAudit_Repeat_Problem_Products', headers, rows);
   };
 
-  const exportVariancePdf = async () => {
+  const exportVariancePdf = async (storeId: string) => {
     setIsGeneratingVariancePdf(true);
     setVariancePdfError(null);
     try {
-      if (!selectedVarianceStoreId) {
-        throw new Error('Select a branch before creating its PDF.');
-      }
       const { jsPDF } = await import('jspdf');
       const branchReports = new Map<string, {
         branchName: string;
@@ -227,7 +225,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       for (const item of items) {
         if (item.physicalCount === undefined) continue;
         const audit = audits.find((entry) => entry.id === item.auditId);
-        if (!audit || audit.storeId !== selectedVarianceStoreId) continue;
+        if (!audit || audit.storeId !== storeId) continue;
         const discrepancy = calculateAuditDiscrepancy(item);
         if (discrepancy.direction === 'balanced') continue;
 
@@ -412,33 +410,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <div className="flex flex-wrap items-start gap-2">
           <AuditedProductsExportButton audits={audits} items={items} stores={stores} />
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                aria-label="Select branch for shortage and excess PDF"
-                value={selectedVarianceStoreId}
-                onChange={(event) => {
-                  setSelectedVarianceStoreId(event.target.value);
-                  setVariancePdfError(null);
-                }}
-                className="min-h-[42px] rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-              >
-                <option value="">Select Branch</option>
-                {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.code ? `${store.code} - ` : ''}{store.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={exportVariancePdf}
-                disabled={isGeneratingVariancePdf || !selectedVarianceStoreId}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#0B3D91] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#082e6d] disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px]"
-              >
-                <FileDown className="h-4 w-4" />
-                <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Download Branch PDF'}</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setVariancePdfError(null);
+                setShowVarianceBranchPicker(true);
+              }}
+              disabled={isGeneratingVariancePdf || storesWithVariance.size === 0}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#0B3D91] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#082e6d] disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px]"
+            >
+              <FileDown className="h-4 w-4" />
+              <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Shortage & Excess PDF by Branch'}</span>
+            </button>
             {storesWithVariance.size === 0 && (
               <p className="mt-2 text-xs text-slate-500">
                 No counted shortage or excess products are available for PDF export.
@@ -452,6 +435,61 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {showVarianceBranchPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isGeneratingVariancePdf) {
+              setShowVarianceBranchPicker(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="variance-branch-picker-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between bg-[#0B3D91] px-5 py-4 text-white">
+              <div>
+                <h3 id="variance-branch-picker-title" className="text-base font-black">
+                  Select Branch
+                </h3>
+                <p className="mt-1 text-xs text-blue-100">
+                  Select a branch to start its PDF download.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVarianceBranchPicker(false)}
+                disabled={isGeneratingVariancePdf}
+                aria-label="Close branch selection"
+                className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-blue-100 hover:bg-white/10 hover:text-white disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto p-4">
+              {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => (
+                <button
+                  key={store.id}
+                  type="button"
+                  disabled={isGeneratingVariancePdf}
+                  onClick={() => {
+                    setShowVarianceBranchPicker(false);
+                    void exportVariancePdf(store.id);
+                  }}
+                  className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-bold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-50"
+                >
+                  <span>{store.code ? `${store.code} - ` : ''}{store.name}</span>
+                  <FileDown className="h-4 w-4 shrink-0 text-[#1D5FD1]" />
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Report Selection Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b border-blue-100 pb-2">
