@@ -262,7 +262,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         { title: 'Bin', x: 124, width: 25 },
         { title: 'Expected', x: 151, width: 20 },
         { title: 'Physical', x: 173, width: 21 },
-        { title: 'Variance', x: 196, width: 25 },
+        { title: 'Variance Qty', x: 196, width: 25 },
         { title: 'Value (INR)', x: 223, width: 34 },
         { title: 'Status', x: 260, width: 25 },
       ];
@@ -356,6 +356,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               drawSectionTitle(branch.branchName, branch.branchCode, kind, rows, true);
             }
 
+            pdf.setFillColor(
+              kind === 'shortage' ? 254 : 219,
+              kind === 'shortage' ? 226 : 234,
+              kind === 'shortage' ? 226 : 254
+            );
+            pdf.rect(columns[5].x - 1, y - 2, columns[5].width, rowHeight - 1, 'F');
             pdf.setDrawColor(226, 232, 240);
             pdf.line(margin, y + rowHeight - 1, pageWidth - margin, y + rowHeight - 1);
             pdf.setFontSize(7);
@@ -365,7 +371,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             pdf.text(binText, columns[2].x, y + 2);
             pdf.text(String(row.expectedQty), columns[3].x, y + 2);
             pdf.text(String(row.item.physicalCount), columns[4].x, y + 2);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(
+              kind === 'shortage' ? 185 : 29,
+              kind === 'shortage' ? 28 : 78,
+              kind === 'shortage' ? 28 : 166
+            );
             pdf.text(`${row.difference > 0 ? '+' : ''}${row.difference}`, columns[5].x, y + 2);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(30, 41, 59);
             pdf.text(formatPdfMoney(row.value), columns[6].x, y + 2);
             pdf.text(statusText, columns[7].x, y + 2);
             y += rowHeight;
