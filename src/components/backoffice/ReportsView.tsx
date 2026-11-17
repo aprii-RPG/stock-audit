@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Audit, AuditItem, Product, Store, User } from '../../types';
 import { calculateAuditDiscrepancy } from '../../services/api';
+import { jsPDF } from 'jspdf';
 import { DifferenceBadge } from '../common/DifferenceBadge';
 import { AuditedProductsExportButton } from '../common/AuditedProductsExportButton';
 import { formatINR } from '../../utils/currency';
@@ -214,7 +215,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     setIsGeneratingVariancePdf(true);
     setVariancePdfError(null);
     try {
-      const { jsPDF } = await import('jspdf');
       const branchReports = new Map<string, {
         branchName: string;
         branchCode: string;
