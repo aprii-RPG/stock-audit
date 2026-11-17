@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   BarChart3,
   Download,
@@ -41,8 +41,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [activeReport, setActiveReport] = useState<ReportType>('no_bin');
   const [overdueDaysThreshold, setOverdueDaysThreshold] = useState<number>(60);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
+  const [selectedVarianceStoreId, setSelectedVarianceStoreId] = useState('');
   const [isGeneratingVariancePdf, setIsGeneratingVariancePdf] = useState(false);
   const [variancePdfError, setVariancePdfError] = useState<string | null>(null);
+  const storesWithVariance = useMemo(() => {
+    const auditStoreIds = new Map(audits.map((audit) => [audit.id, audit.storeId]));
+    const storeIds = new Set<string>();
+    for (const item of items) {
+      if (item.physicalCount === undefined) continue;
+      const storeId = auditStoreIds.get(item.auditId);
+      if (storeId && calculateAuditDiscrepancy(item).direction !== 'balanced') {
+        storeIds.add(storeId);
+      }
+    }
+    return storeIds;
+  }, [audits, items]);
 
   // Helper to trigger CSV/Excel export
   const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -200,6 +213,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     setIsGeneratingVariancePdf(true);
     setVariancePdfError(null);
     try {
+      if (!selectedVarianceStoreId) {
+        throw new Error('Select a branch before creating its PDF.');
+      }
       const { jsPDF } = await import('jspdf');
       const branchReports = new Map<string, {
         branchName: string;
@@ -211,7 +227,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       for (const item of items) {
         if (item.physicalCount === undefined) continue;
         const audit = audits.find((entry) => entry.id === item.auditId);
-        if (!audit) continue;
+        if (!audit || audit.storeId !== selectedVarianceStoreId) continue;
         const discrepancy = calculateAuditDiscrepancy(item);
         if (discrepancy.direction === 'balanced') continue;
 
@@ -256,11 +272,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         `INR ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
-      pdf.text('Branch-wise Shortage & Excess Report', margin, 14);
+      pdf.text('Branch Shortage & Excess Report', margin, 14);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9);
       pdf.text(`Generated ${new Date().toLocaleString('en-IN')}`, margin, 20);
-      pdf.text(`${branchReports.size} branch(es) with counted variance`, pageWidth - margin, 20, { align: 'right' });
+      const reportBranch = branchReports.values().next().value;
+      if (!reportBranch) {
+        throw new Error('The selected branch has no counted shortage or excess products.');
+      }
+      pdf.text(
+        `${reportBranch.branchCode ? `${reportBranch.branchCode} - ` : ''}${reportBranch.branchName}`,
+        pageWidth - margin,
+        20,
+        { align: 'right' }
+      );
 
       let y = 30;
       const drawTableHeader = () => {
@@ -360,7 +385,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         pdf.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
       }
 
-      pdf.save(`StockAudit_Shortage_Excess_By_Branch_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const branchFileName = `${reportBranch.branchCode ? `${reportBranch.branchCode}_` : ''}${reportBranch.branchName}`
+        .replace(/[^a-z0-9_-]+/gi, '_')
+        .replace(/^_+|_+$/g, '');
+      pdf.save(`StockAudit_Shortage_Excess_${branchFileName}_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
       console.error('Branch-wise shortage and excess PDF export failed', error);
       setVariancePdfError(error instanceof Error ? error.message : 'Could not create the branch-wise PDF report.');
@@ -384,15 +412,38 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <div className="flex flex-wrap items-start gap-2">
           <AuditedProductsExportButton audits={audits} items={items} stores={stores} />
           <div>
-            <button
-              type="button"
-              onClick={exportVariancePdf}
-              disabled={isGeneratingVariancePdf}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#0B3D91] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#082e6d] disabled:cursor-wait disabled:opacity-50 min-h-[42px]"
-            >
-              <FileDown className="h-4 w-4" />
-              <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Shortage & Excess PDF by Branch'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Select branch for shortage and excess PDF"
+                value={selectedVarianceStoreId}
+                onChange={(event) => {
+                  setSelectedVarianceStoreId(event.target.value);
+                  setVariancePdfError(null);
+                }}
+                className="min-h-[42px] rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                <option value="">Select Branch</option>
+                {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.code ? `${store.code} - ` : ''}{store.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={exportVariancePdf}
+                disabled={isGeneratingVariancePdf || !selectedVarianceStoreId}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0B3D91] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#082e6d] disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px]"
+              >
+                <FileDown className="h-4 w-4" />
+                <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Download Branch PDF'}</span>
+              </button>
+            </div>
+            {storesWithVariance.size === 0 && (
+              <p className="mt-2 text-xs text-slate-500">
+                No counted shortage or excess products are available for PDF export.
+              </p>
+            )}
             {variancePdfError && (
               <p role="alert" className="mt-2 max-w-xs text-sm text-rose-700">
                 {variancePdfError}
