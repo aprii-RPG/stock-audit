@@ -280,13 +280,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 12;
       const columns = [
-        { title: 'Product', x: 12, width: 82 },
-        { title: 'Audit Date', x: 97, width: 25 },
-        { title: 'Bin', x: 124, width: 25 },
-        { title: 'Expected', x: 151, width: 20 },
-        { title: 'Physical', x: 173, width: 21 },
-        { title: 'Variance Qty', x: 196, width: 25 },
-        { title: 'Value (INR)', x: 223, width: 34 },
+        { title: 'Product', x: 12, width: 63 },
+        { title: 'Auditor', x: 78, width: 35 },
+        { title: 'Audit Date', x: 116, width: 22 },
+        { title: 'Bin', x: 141, width: 20 },
+        { title: 'Expected', x: 164, width: 16 },
+        { title: 'Physical', x: 183, width: 16 },
+        { title: 'Variance Qty', x: 202, width: 23 },
+        { title: 'Value (INR)', x: 228, width: 29 },
         { title: 'Status', x: 260, width: 25 },
       ];
       const formatPdfMoney = (value: number) =>
@@ -380,9 +381,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               `${row.item.product.code} - ${row.item.product.name}\n${row.audit.name}`,
               columns[0].width
             ) as string[];
-            const binText = pdf.splitTextToSize(row.item.bin || '-', columns[2].width) as string[];
-            const statusText = pdf.splitTextToSize(row.item.status.replace(/_/g, ' '), columns[7].width) as string[];
-            const lineCount = Math.max(1, productText.length, binText.length, statusText.length);
+            const auditorText = pdf.splitTextToSize(row.item.countedByUserName || '-', columns[1].width) as string[];
+            const binText = pdf.splitTextToSize(row.item.bin || '-', columns[3].width) as string[];
+            const statusText = pdf.splitTextToSize(row.item.status.replace(/_/g, ' '), columns[8].width) as string[];
+            const lineCount = Math.max(
+              1,
+              productText.length,
+              auditorText.length,
+              binText.length,
+              statusText.length
+            );
             const rowHeight = Math.max(7, lineCount * 3.8);
             if (y + rowHeight > pageHeight - 12) {
               pdf.addPage();
@@ -395,27 +403,28 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               kind === 'shortage' ? 226 : 234,
               kind === 'shortage' ? 226 : 254
             );
-            pdf.rect(columns[5].x - 1, y - 2, columns[5].width, rowHeight - 1, 'F');
+            pdf.rect(columns[6].x - 1, y - 2, columns[6].width, rowHeight - 1, 'F');
             pdf.setDrawColor(226, 232, 240);
             pdf.line(margin, y + rowHeight - 1, pageWidth - margin, y + rowHeight - 1);
             pdf.setFontSize(7);
             pdf.setTextColor(30, 41, 59);
             pdf.text(productText, columns[0].x, y + 2, { lineHeightFactor: 1.15 });
-            pdf.text(row.audit.date, columns[1].x, y + 2);
-            pdf.text(binText, columns[2].x, y + 2);
-            pdf.text(String(row.expectedQty), columns[3].x, y + 2);
-            pdf.text(String(row.item.physicalCount), columns[4].x, y + 2);
+            pdf.text(auditorText, columns[1].x, y + 2, { lineHeightFactor: 1.15 });
+            pdf.text(row.audit.date, columns[2].x, y + 2);
+            pdf.text(binText, columns[3].x, y + 2);
+            pdf.text(String(row.expectedQty), columns[4].x, y + 2);
+            pdf.text(String(row.item.physicalCount), columns[5].x, y + 2);
             pdf.setFont('helvetica', 'bold');
             pdf.setTextColor(
               kind === 'shortage' ? 185 : 29,
               kind === 'shortage' ? 28 : 78,
               kind === 'shortage' ? 28 : 166
             );
-            pdf.text(`${row.difference > 0 ? '+' : ''}${row.difference}`, columns[5].x, y + 2);
+            pdf.text(`${row.difference > 0 ? '+' : ''}${row.difference}`, columns[6].x, y + 2);
             pdf.setFont('helvetica', 'normal');
             pdf.setTextColor(30, 41, 59);
-            pdf.text(formatPdfMoney(row.value), columns[6].x, y + 2);
-            pdf.text(statusText, columns[7].x, y + 2);
+            pdf.text(formatPdfMoney(row.value), columns[7].x, y + 2);
+            pdf.text(statusText, columns[8].x, y + 2);
             y += rowHeight;
           }
           y += 8;
