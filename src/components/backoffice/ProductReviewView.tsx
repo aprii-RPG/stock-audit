@@ -82,7 +82,9 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [varianceFilter, setVarianceFilter] = useState<'ALL' | 'DISCREPANCY' | 'MATCH'>('ALL');
+  const [varianceFilter, setVarianceFilter] = useState<
+    'ALL' | 'DISCREPANCY' | 'MATCH' | 'SHORTAGE' | 'EXCESS'
+  >('ALL');
   const [physicalQuantityFilterEnabled, setPhysicalQuantityFilterEnabled] = useState(false);
   const [exactPhysicalQuantity, setExactPhysicalQuantity] = useState('');
   const [submittedFromDate, setSubmittedFromDate] = useState('');
@@ -289,6 +291,8 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       const disc = calculateAuditDiscrepancy(item);
       if (varianceFilter === 'DISCREPANCY' && disc.difference === 0) return false;
       if (varianceFilter === 'MATCH' && disc.difference !== 0) return false;
+      if (varianceFilter === 'SHORTAGE' && disc.direction !== 'short') return false;
+      if (varianceFilter === 'EXCESS' && disc.direction !== 'excess') return false;
     }
 
     if (physicalQuantityFilterEnabled && exactPhysicalQuantity.trim() !== '') {
@@ -436,11 +440,17 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
         ) : (
           <select
             value={varianceFilter}
-            onChange={(e) => setVarianceFilter(e.target.value as 'ALL' | 'DISCREPANCY' | 'MATCH')}
+            onChange={(e) =>
+              setVarianceFilter(
+                e.target.value as 'ALL' | 'DISCREPANCY' | 'MATCH' | 'SHORTAGE' | 'EXCESS'
+              )
+            }
             className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 min-h-[40px]"
           >
             <option value="ALL">All Differences</option>
             <option value="DISCREPANCY">Discrepancies Only (▲ / ▼)</option>
+            <option value="SHORTAGE">Shortage Only</option>
+            <option value="EXCESS">Excess Only</option>
             <option value="MATCH">Zero Variance (Exact Match)</option>
           </select>
         )}
