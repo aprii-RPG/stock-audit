@@ -8,11 +8,13 @@ import {
   History,
   ShieldCheck,
   PackageSearch,
+  BadgeCheck,
 } from 'lucide-react';
 
 export type BackOfficeTab =
   | 'dashboard'
   | 'audits'
+  | 'exact_matches'
   | 'photo_approval'
   | 'bin_suggestions'
   | 'product_history'
@@ -42,6 +44,12 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
       id: 'audits' as BackOfficeTab,
       label: 'Audits & Review',
       icon: ClipboardList,
+      badge: null,
+    },
+    {
+      id: 'exact_matches' as BackOfficeTab,
+      label: 'Exact Match Products',
+      icon: BadgeCheck,
       badge: null,
     },
     {

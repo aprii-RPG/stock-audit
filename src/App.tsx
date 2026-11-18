@@ -29,6 +29,7 @@ import { BarcodeScanModal } from './components/auditor/BarcodeScanModal';
 import { AuditProgressScreen } from './components/auditor/AuditProgressScreen';
 import { DashboardView } from './components/backoffice/DashboardView';
 import { ProductReviewView } from './components/backoffice/ProductReviewView';
+import { ExactMatchProductsView } from './components/backoffice/ExactMatchProductsView';
 import { PhotoApprovalView } from './components/backoffice/PhotoApprovalView';
 import { ProductHistoryView } from './components/backoffice/ProductHistoryView';
 import { AuditPlannerModal } from './components/backoffice/AuditPlannerModal';
@@ -571,6 +572,21 @@ export default function App() {
                   onOpenAuditPlanner={(audit) => {
                     setPlannerAudit(audit || null);
                     setShowPlannerModal(true);
+                  }}
+                />
+              )}
+
+              {backOfficeTab === 'exact_matches' && (
+                <ExactMatchProductsView
+                  audits={audits}
+                  items={items}
+                  stores={stores}
+                  users={allUsers}
+                  onSendToRecount={handleSendToRecount}
+                  onOpenAudit={(auditId) => {
+                    const match = audits.find((audit) => audit.id === auditId);
+                    if (match) setActiveAudit(match);
+                    setBackOfficeTab('audits');
                   }}
                 />
               )}

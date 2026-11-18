@@ -439,38 +439,14 @@ export const api = {
     recountAssigneeId: string,
     note?: string
   ): Promise<AuditItem> {
-    const currentUser = await this.getCurrentUser();
-    const users = await this.getUsers();
-    const assignee = users.find((u) => u.id === recountAssigneeId);
-
-    const items = readStorage<AuditItem[]>(STORAGE_KEYS.AUDIT_ITEMS, []);
-    const idx = items.findIndex((i) => i.auditId === auditId && i.productId === productId);
-    if (idx === -1) throw new Error('Item not found');
-
-    const item = items[idx];
-
-    // Business rule: Recount must be assigned to a different person than the original counter!
-    if (item.countedByUserId && item.countedByUserId === recountAssigneeId) {
-      throw new Error('Business Rule: Recount must be assigned to a different person than the original auditor.');
-    }
-
-    item.status = 'recount';
-    item.recountAssignedToId = recountAssigneeId;
-    item.recountAssignedToName = assignee?.name || 'Assigned Auditor';
-    item.recountNote = note || 'Physically verify pack count and secondary storage racks.';
-
-    items[idx] = item;
-    writeStorage(STORAGE_KEYS.AUDIT_ITEMS, items);
-
-    await this.logAction({
-      action: 'RECOUNT_DISPATCHED',
-      details: `Recount dispatched to ${assignee?.name || recountAssigneeId} for ${item.product.name}. Note: ${item.recountNote}`,
-      auditId,
-      productId,
-      productName: item.product.name,
+    const res = await fetch('/api/recount', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId, productId, recountAssigneeId, note }),
     });
-
-    return item;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not dispatch product for recount.');
+    return data.item as AuditItem;
   },
 
   async approvePhoto(auditId: string, productId: string): Promise<AuditItem> {

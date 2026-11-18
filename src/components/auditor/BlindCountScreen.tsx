@@ -41,7 +41,9 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
   isTabletSplit = false,
   onClose,
 }) => {
-  const [count, setCount] = useState<number>(item.physicalCount ?? 0);
+  const [count, setCount] = useState<number | null>(
+    item.status === 'recount' ? null : item.physicalCount ?? 0
+  );
   const [selectedBin, setSelectedBin] = useState<string>(item.bin || '');
   const [showAddBinModal, setShowAddBinModal] = useState(false);
   const [newBinInput, setNewBinInput] = useState('');
@@ -50,20 +52,24 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
 
   // Sync count if item changes
   useEffect(() => {
-    setCount(item.physicalCount ?? 0);
+    setCount(item.status === 'recount' ? null : item.physicalCount ?? 0);
     setSelectedBin(item.bin || '');
     setSaveSuccessNotice(false);
   }, [item.id, item.physicalCount, item.bin]);
 
   const handleIncrement = (amount = 1) => {
-    setCount((prev) => Math.max(0, prev + amount));
+    setCount((prev) => Math.max(0, (prev ?? 0) + amount));
   };
 
   const handleDecrement = (amount = 1) => {
-    setCount((prev) => Math.max(0, prev - amount));
+    setCount((prev) => Math.max(0, (prev ?? 0) - amount));
   };
 
   const handleSaveAndNext = async () => {
+    if (count === null) {
+      alert('Enter the recount quantity before saving.');
+      return;
+    }
     setIsSaving(true);
     try {
       await onSaveCount(count, selectedBin);
@@ -273,10 +279,14 @@ export const BlindCountScreen: React.FC<BlindCountScreenProps> = ({
                 type="number"
                 min="0"
                 step="any"
-                value={count === 0 ? '' : count}
+                value={count ?? ''}
                 onChange={(e) => {
+                  if (e.target.value === '') {
+                    setCount(null);
+                    return;
+                  }
                   const val = parseFloat(e.target.value);
-                  setCount(isNaN(val) ? 0 : Math.max(0, val));
+                  setCount(Number.isNaN(val) ? null : Math.max(0, val));
                 }}
                 placeholder="0"
                 className="w-full text-center text-4xl sm:text-5xl font-black text-[#0B3D91] py-2 rounded-2xl border-2 border-blue-300 bg-[#F7FAFF] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#1D5FD1] min-h-[64px]"

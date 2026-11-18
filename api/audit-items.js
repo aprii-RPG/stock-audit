@@ -16,7 +16,13 @@ export default async function handler(req, res) {
     }
     const q = await pool.query(`${ITEM_SELECT} WHERE i.audit_id = $1 ORDER BY p.name`, [auditId]);
     const hide = user.role === "auditor";
-    return res.status(200).json({ items: q.rows.map((r) => toAuditItem(r, hide)) });
+    return res.status(200).json({
+      items: q.rows.map((r) => {
+        const item = toAuditItem(r, hide);
+        if (hide && r.status === "recount") item.physicalCount = undefined;
+        return item;
+      }),
+    });
   } catch (e) {
     return res.status(500).json({ error: "Server error" });
   }
