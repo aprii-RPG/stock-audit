@@ -36,6 +36,7 @@ import { StatusChip } from '../common/StatusChip';
 interface ProductReviewViewProps {
   audits: Audit[];
   selectedAuditId: string;
+  exactMatchesOnly?: boolean;
   onSelectAuditId: (id: string) => void;
   items: AuditItem[];
   stores: Store[];
@@ -63,6 +64,7 @@ interface ProductReviewViewProps {
 export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   audits,
   selectedAuditId,
+  exactMatchesOnly = false,
   onSelectAuditId,
   items,
   stores,
@@ -110,10 +112,20 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   }, [activeAudit?.id]);
 
   useEffect(() => {
-    setSelectedItem((current) =>
-      current ? items.find((item) => item.id === current.id) || current : current
-    );
-  }, [items]);
+    setSelectedItem((current) => {
+      if (!current) return current;
+      const updatedItem = items.find((item) => item.id === current.id);
+      if (!updatedItem) return current;
+      if (
+        exactMatchesOnly &&
+        (updatedItem.physicalCount === undefined ||
+          calculateAuditDiscrepancy(updatedItem).difference !== 0)
+      ) {
+        return null;
+      }
+      return updatedItem;
+    });
+  }, [items, exactMatchesOnly]);
 
   // Sync item selection
   const handleSelectRow = (item: AuditItem) => {
@@ -252,7 +264,13 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
   };
 
   // Filter items
-  const auditItems = items.filter((i) => i.auditId === activeAudit?.id);
+  const auditItems = items.filter((item) => {
+    if (item.auditId !== activeAudit?.id) return false;
+    return (
+      !exactMatchesOnly ||
+      (item.physicalCount !== undefined && calculateAuditDiscrepancy(item).difference === 0)
+    );
+  });
   const doneItemCount = auditItems.filter(
     (item) => item.status === 'skipped' || (item.physicalCount !== undefined && item.status !== 'recount')
   ).length;
@@ -271,7 +289,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       return false;
     }
 
-    if (varianceFilter !== 'ALL') {
+    if (!exactMatchesOnly && varianceFilter !== 'ALL') {
       const disc = calculateAuditDiscrepancy(item);
       if (varianceFilter === 'DISCREPANCY' && disc.difference === 0) return false;
       if (varianceFilter === 'MATCH' && disc.difference !== 0) return false;
@@ -308,6 +326,16 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
+      {exactMatchesOnly && (
+        <header className="rounded-2xl border border-blue-100 bg-white p-4 shadow-xs">
+          <h2 className="text-xl font-black tracking-tight text-[#0B3D91]">
+            Exact Match Products
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Audit and review products with a submitted physical count equal to the expected stock quantity.
+          </p>
+        </header>
+      )}
       {/* Top Header & Audit Selector */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-blue-100 shadow-xs">
         <div className="flex flex-wrap items-center gap-3">
@@ -401,15 +429,21 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
           <option value="not_started">Not Started</option>
         </select>
 
-        <select
-          value={varianceFilter}
-          onChange={(e) => setVarianceFilter(e.target.value as 'ALL' | 'DISCREPANCY' | 'MATCH')}
-          className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 min-h-[40px]"
-        >
-          <option value="ALL">All Differences</option>
-          <option value="DISCREPANCY">Discrepancies Only (▲ / ▼)</option>
-          <option value="MATCH">Zero Variance (Exact Match)</option>
-        </select>
+        {exactMatchesOnly ? (
+          <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800">
+            Exact Matches Only
+          </span>
+        ) : (
+          <select
+            value={varianceFilter}
+            onChange={(e) => setVarianceFilter(e.target.value as 'ALL' | 'DISCREPANCY' | 'MATCH')}
+            className="text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 min-h-[40px]"
+          >
+            <option value="ALL">All Differences</option>
+            <option value="DISCREPANCY">Discrepancies Only (▲ / ▼)</option>
+            <option value="MATCH">Zero Variance (Exact Match)</option>
+          </select>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
           <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
