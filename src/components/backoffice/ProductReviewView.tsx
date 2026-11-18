@@ -271,10 +271,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
       (item.physicalCount !== undefined && calculateAuditDiscrepancy(item).difference === 0)
     );
   });
-  const doneItemCount = auditItems.filter(
-    (item) => item.status === 'skipped' || (item.physicalCount !== undefined && item.status !== 'recount')
-  ).length;
-  const pendingItemCount = auditItems.length - doneItemCount;
   const filteredItems = auditItems.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
@@ -316,6 +312,10 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
 
     return true;
   });
+  const doneItemCount = filteredItems.filter(
+    (item) => item.status === 'skipped' || (item.physicalCount !== undefined && item.status !== 'recount')
+  ).length;
+  const pendingItemCount = filteredItems.length - doneItemCount;
 
   const selectedItemBills: CutoffBillItem[] =
     selectedItem
