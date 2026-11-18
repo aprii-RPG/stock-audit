@@ -35,6 +35,29 @@ type ReportType =
 
 type VarianceReportType = 'both' | 'short' | 'excess';
 
+interface VarianceReportRow {
+  audit: Audit;
+  item: AuditItem;
+  reportDate: string;
+  expectedQty: number;
+  difference: number;
+  value: number;
+}
+
+const getCountDate = (item: AuditItem, audit: Audit): string => {
+  if (!item.countSavedAt) return audit.date.slice(0, 10);
+  const date = new Date(item.countSavedAt);
+  if (Number.isNaN(date.getTime())) return audit.date.slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const dateParts = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+};
+
 export const ReportsView: React.FC<ReportsViewProps> = ({
   products,
   stores,
@@ -69,8 +92,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       if (item.physicalCount === undefined) continue;
       const audit = auditById.get(item.auditId);
       if (!audit) continue;
-      if (varianceFromDate && audit.date < varianceFromDate) continue;
-      if (varianceToDate && audit.date > varianceToDate) continue;
+      const countDate = getCountDate(item, audit);
+      if (varianceFromDate && countDate < varianceFromDate) continue;
+      if (varianceToDate && countDate > varianceToDate) continue;
       const direction = calculateAuditDiscrepancy(item).direction;
       if (direction === 'balanced') continue;
       if (varianceReportType !== 'both' && direction !== varianceReportType) continue;
@@ -238,16 +262,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const branchReports = new Map<string, {
         branchName: string;
         branchCode: string;
-        shortages: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[];
-        excesses: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[];
+        shortages: VarianceReportRow[];
+        excesses: VarianceReportRow[];
       }>();
 
       for (const item of items) {
         if (item.physicalCount === undefined) continue;
         const audit = audits.find((entry) => entry.id === item.auditId);
         if (!audit || audit.storeId !== storeId) continue;
-        if (varianceFromDate && audit.date < varianceFromDate) continue;
-        if (varianceToDate && audit.date > varianceToDate) continue;
+        const countDate = getCountDate(item, audit);
+        if (varianceFromDate && countDate < varianceFromDate) continue;
+        if (varianceToDate && countDate > varianceToDate) continue;
         const discrepancy = calculateAuditDiscrepancy(item);
         if (discrepancy.direction === 'balanced') continue;
         if (varianceReportType !== 'both' && discrepancy.direction !== varianceReportType) continue;
@@ -262,6 +287,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         const row = {
           audit,
           item,
+          reportDate: countDate,
           expectedQty: discrepancy.expectedQty,
           difference: discrepancy.difference,
           value: discrepancy.differenceValue,
@@ -282,7 +308,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const columns = [
         { title: 'Product', x: 12, width: 63 },
         { title: 'Auditor', x: 78, width: 35 },
-        { title: 'Audit Date', x: 116, width: 22 },
+        { title: 'Count Date', x: 116, width: 22 },
         { title: 'Bin', x: 141, width: 20 },
         { title: 'Expected', x: 164, width: 16 },
         { title: 'Physical', x: 183, width: 16 },
@@ -303,7 +329,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       pdf.setFontSize(9);
       pdf.text(`Generated ${new Date().toLocaleString('en-IN')}`, margin, 20);
       pdf.text(
-        `Audit date: ${varianceFromDate || 'Any'} to ${varianceToDate || 'Any'}`,
+        `Count date (IST): ${varianceFromDate || 'Any'} to ${varianceToDate || 'Any'}`,
         margin,
         25
       );
@@ -336,7 +362,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         branchName: string,
         branchCode: string,
         kind: 'shortage' | 'excess',
-        rows: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[],
+        rows: VarianceReportRow[],
         continued = false
       ) => {
         if (y > pageHeight - 38) {
@@ -376,7 +402,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             (kind === 'shortage' ? 'short' : 'excess') !== varianceReportType
           ) continue;
           if (rows.length === 0) continue;
-          rows.sort((a, b) => a.audit.date.localeCompare(b.audit.date) || a.item.product.name.localeCompare(b.item.product.name));
+          rows.sort((a, b) => a.reportDate.localeCompare(b.reportDate) || a.item.product.name.localeCompare(b.item.product.name));
           drawSectionTitle(branch.branchName, branch.branchCode, kind, rows);
 
           for (const row of rows) {
@@ -413,7 +439,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             pdf.setTextColor(30, 41, 59);
             pdf.text(productText, columns[0].x, y + 2, { lineHeightFactor: 1.15 });
             pdf.text(auditorText, columns[1].x, y + 2, { lineHeightFactor: 1.15 });
-            pdf.text(row.audit.date, columns[2].x, y + 2);
+            pdf.text(row.reportDate, columns[2].x, y + 2);
             pdf.text(binText, columns[3].x, y + 2);
             pdf.text(String(row.expectedQty), columns[4].x, y + 2);
             pdf.text(String(row.item.physicalCount), columns[5].x, y + 2);
@@ -491,7 +517,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </button>
             {storesWithVariance.size === 0 && (
               <p className="mt-2 text-xs text-slate-500">
-                No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType === 'short' ? 'shortage' : 'excess'} products match the selected audit dates.
+                No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType === 'short' ? 'shortage' : 'excess'} products match the selected count dates.
               </p>
             )}
             {variancePdfError && (
@@ -524,7 +550,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   Filter PDF Report
                 </h3>
                 <p className="mt-1 text-xs text-blue-100">
-                  Choose audit dates and variance type, then select a branch to download.
+                  Choose count dates and variance type, then select a branch to download.
                 </p>
               </div>
               <button
@@ -540,7 +566,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-xs font-semibold text-slate-700">
-                  <span>Audit date from</span>
+                  <span>Count date from (IST)</span>
                   <input
                     type="date"
                     value={varianceFromDate}
@@ -550,7 +576,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   />
                 </label>
                 <label className="space-y-1 text-xs font-semibold text-slate-700">
-                  <span>Audit date to</span>
+                  <span>Count date to (IST)</span>
                   <input
                     type="date"
                     value={varianceToDate}
