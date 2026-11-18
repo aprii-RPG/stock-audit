@@ -33,6 +33,8 @@ type ReportType =
   | 'auditor_accuracy'
   | 'repeat_problems';
 
+type VarianceReportType = 'both' | 'shortage' | 'excess';
+
 export const ReportsView: React.FC<ReportsViewProps> = ({
   products,
   stores,
@@ -45,52 +47,37 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [showVarianceBranchPicker, setShowVarianceBranchPicker] = useState(false);
   const [isGeneratingVariancePdf, setIsGeneratingVariancePdf] = useState(false);
   const [variancePdfError, setVariancePdfError] = useState<string | null>(null);
-  const [varianceType, setVarianceType] = useState<'all' | 'shortage' | 'excess'>('all');
-  const [varianceSearch, setVarianceSearch] = useState('');
   const [varianceFromDate, setVarianceFromDate] = useState('');
   const [varianceToDate, setVarianceToDate] = useState('');
-  const filteredVarianceRows = useMemo(() => {
-    const auditById = new Map(audits.map((audit) => [audit.id, audit]));
-    const query = varianceSearch.trim().toLowerCase();
-    return items.flatMap((item) => {
-      if (item.physicalCount === undefined) return [];
-      const audit = auditById.get(item.auditId);
-      if (!audit) return [];
-      const discrepancy = calculateAuditDiscrepancy(item);
-      if (discrepancy.direction === 'balanced') return [];
-      if (varianceType === 'shortage' && discrepancy.direction !== 'short') return [];
-      if (varianceType === 'excess' && discrepancy.direction !== 'excess') return [];
-      if (
-        query &&
-        !item.product.name.toLowerCase().includes(query) &&
-        !item.product.code.toLowerCase().includes(query) &&
-        !audit.name.toLowerCase().includes(query) &&
-        !(item.bin || '').toLowerCase().includes(query)
-      ) {
-        return [];
-      }
-      const auditDate = audit.date.slice(0, 10);
-      if (varianceFromDate && auditDate < varianceFromDate) return [];
-      if (varianceToDate && auditDate > varianceToDate) return [];
-      return [{ audit, item, direction: discrepancy.direction }];
-    });
-  }, [audits, items, varianceType, varianceSearch, varianceFromDate, varianceToDate]);
-  const varianceCountsByStore = useMemo(() => {
-    const counts = new Map<string, { shortage: number; excess: number }>();
-    for (const { audit, direction } of filteredVarianceRows) {
-      const count = counts.get(audit.storeId) || { shortage: 0, excess: 0 };
-      count[direction === 'short' ? 'shortage' : 'excess'] += 1;
-      counts.set(audit.storeId, count);
-    }
-    return counts;
-  }, [filteredVarianceRows]);
-  const storesWithVariance = useMemo(() => {
+  const [varianceReportType, setVarianceReportType] = useState<VarianceReportType>('both');
+  const storesWithAnyVariance = useMemo(() => {
+    const auditStoreIds = new Map(audits.map((audit) => [audit.id, audit.storeId]));
     const storeIds = new Set<string>();
-    for (const storeId of varianceCountsByStore.keys()) {
-      storeIds.add(storeId);
+    for (const item of items) {
+      if (item.physicalCount === undefined) continue;
+      const storeId = auditStoreIds.get(item.auditId);
+      if (storeId && calculateAuditDiscrepancy(item).direction !== 'balanced') {
+        storeIds.add(storeId);
+      }
     }
     return storeIds;
-  }, [varianceCountsByStore]);
+  }, [audits, items]);
+  const storesWithVariance = useMemo(() => {
+    const auditById = new Map(audits.map((audit) => [audit.id, audit]));
+    const storeIds = new Set<string>();
+    for (const item of items) {
+      if (item.physicalCount === undefined) continue;
+      const audit = auditById.get(item.auditId);
+      if (!audit) continue;
+      if (varianceFromDate && audit.date < varianceFromDate) continue;
+      if (varianceToDate && audit.date > varianceToDate) continue;
+      const direction = calculateAuditDiscrepancy(item).direction;
+      if (direction === 'balanced') continue;
+      if (varianceReportType !== 'both' && direction !== varianceReportType) continue;
+      storeIds.add(audit.storeId);
+    }
+    return storeIds;
+  }, [audits, items, varianceFromDate, varianceToDate, varianceReportType]);
 
   // Helper to trigger CSV/Excel export
   const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -255,9 +242,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         excesses: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[];
       }>();
 
-      for (const { audit, item } of filteredVarianceRows) {
-        if (audit.storeId !== storeId) continue;
+      for (const item of items) {
+        if (item.physicalCount === undefined) continue;
+        const audit = audits.find((entry) => entry.id === item.auditId);
+        if (!audit || audit.storeId !== storeId) continue;
+        if (varianceFromDate && audit.date < varianceFromDate) continue;
+        if (varianceToDate && audit.date > varianceToDate) continue;
         const discrepancy = calculateAuditDiscrepancy(item);
+        if (discrepancy.direction === 'balanced') continue;
+        if (varianceReportType !== 'both' && discrepancy.direction !== varianceReportType) continue;
 
         const store = stores.find((entry) => entry.id === audit.storeId);
         const branch = branchReports.get(audit.storeId) || {
@@ -301,15 +294,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
       const reportTitle =
-        varianceType === 'shortage'
-          ? 'Branch Shortage Report'
-          : varianceType === 'excess'
-          ? 'Branch Excess Report'
-          : 'Branch Shortage & Excess Report';
+        varianceReportType === 'both'
+          ? 'Branch Shortage & Excess Report'
+          : `Branch ${varianceReportType === 'shortage' ? 'Shortage' : 'Excess'} Report`;
       pdf.text(reportTitle, margin, 14);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9);
       pdf.text(`Generated ${new Date().toLocaleString('en-IN')}`, margin, 20);
+      pdf.text(
+        `Audit date: ${varianceFromDate || 'Any'} to ${varianceToDate || 'Any'}`,
+        margin,
+        25
+      );
       const reportBranch = branchReports.values().next().value;
       if (!reportBranch) {
         throw new Error('The selected branch has no counted shortage or excess products.');
@@ -321,7 +317,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         { align: 'right' }
       );
 
-      let y = 30;
+      let y = 35;
       const drawTableHeader = () => {
         pdf.setFillColor(11, 61, 145);
         pdf.rect(margin, y - 5, pageWidth - margin * 2, 8, 'F');
@@ -368,11 +364,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         drawTableHeader();
       };
 
-      const reportKinds: ('shortage' | 'excess')[] =
-        varianceType === 'all' ? ['shortage', 'excess'] : [varianceType];
       for (const branch of branchReports.values()) {
-        for (const kind of reportKinds) {
-          const rows = kind === 'shortage' ? branch.shortages : branch.excesses;
+        const sections: [kind: 'shortage' | 'excess', rows: typeof branch.shortages][] = [
+          ['shortage', branch.shortages],
+          ['excess', branch.excesses],
+        ];
+        for (const [kind, rows] of sections) {
+          if (varianceReportType !== 'both' && kind !== varianceReportType) continue;
           if (rows.length === 0) continue;
           rows.sort((a, b) => a.audit.date.localeCompare(b.audit.date) || a.item.product.name.localeCompare(b.item.product.name));
           drawSectionTitle(branch.branchName, branch.branchCode, kind, rows);
@@ -436,8 +434,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const branchFileName = `${reportBranch.branchCode ? `${reportBranch.branchCode}_` : ''}${reportBranch.branchName}`
         .replace(/[^a-z0-9_-]+/gi, '_')
         .replace(/^_+|_+$/g, '');
-      const reportTypeName = varianceType === 'all' ? 'Shortage_Excess' : varianceType;
-      pdf.save(`StockAudit_${reportTypeName}_${branchFileName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const typeFileName = varianceReportType === 'both' ? 'Shortage_Excess' : varianceReportType;
+      const dateFileName = `${varianceFromDate || 'all'}_to_${varianceToDate || 'all'}`;
+      pdf.save(`StockAudit_${typeFileName}_${branchFileName}_${dateFileName}.pdf`);
     } catch (error) {
       console.error('Branch-wise shortage and excess PDF export failed', error);
       setVariancePdfError(error instanceof Error ? error.message : 'Could not create the branch-wise PDF report.');
@@ -467,15 +466,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 setVariancePdfError(null);
                 setShowVarianceBranchPicker(true);
               }}
-              disabled={isGeneratingVariancePdf || storesWithVariance.size === 0}
+              disabled={isGeneratingVariancePdf || storesWithAnyVariance.size === 0}
               className="inline-flex items-center gap-2 rounded-xl bg-[#0B3D91] px-3.5 py-2 text-xs font-bold text-white transition hover:bg-[#082e6d] disabled:cursor-not-allowed disabled:opacity-50 min-h-[42px]"
             >
               <FileDown className="h-4 w-4" />
-              <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Shortage & Excess PDF by Branch'}</span>
+              <span>{isGeneratingVariancePdf ? 'Creating PDF...' : 'Shortage / Excess PDF by Branch'}</span>
             </button>
             {storesWithVariance.size === 0 && (
               <p className="mt-2 text-xs text-slate-500">
-                No counted shortage or excess products are available for PDF export.
+                No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType} products match the selected audit dates.
               </p>
             )}
             {variancePdfError && (
@@ -505,10 +504,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <div className="flex items-center justify-between bg-[#0B3D91] px-5 py-4 text-white">
               <div>
                 <h3 id="variance-branch-picker-title" className="text-base font-black">
-                  Select Branch
+                  Filter PDF Report
                 </h3>
                 <p className="mt-1 text-xs text-blue-100">
-                  Select a branch to start its PDF download.
+                  Choose audit dates and variance type, then select a branch to download.
                 </p>
               </div>
               <button
@@ -521,63 +520,43 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="space-y-3 border-b border-slate-100 p-4">
-              <label className="block text-xs font-bold text-slate-700">
-                Variance type
-                <select
-                  value={varianceType}
-                  onChange={(event) =>
-                    setVarianceType(event.target.value as 'all' | 'shortage' | 'excess')
-                  }
-                  className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm"
-                >
-                  <option value="all">Shortage and Excess</option>
-                  <option value="shortage">Shortage only</option>
-                  <option value="excess">Excess only</option>
-                </select>
-              </label>
-              <label className="block text-xs font-bold text-slate-700">
-                Search product, code, bin, or audit
-                <input
-                  type="search"
-                  value={varianceSearch}
-                  onChange={(event) => setVarianceSearch(event.target.value)}
-                  placeholder="Type to filter report data..."
-                  className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-normal"
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs font-bold text-slate-700">
-                  Audit date from
+            <div className="space-y-4 p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-xs font-semibold text-slate-700">
+                  <span>Audit date from</span>
                   <input
                     type="date"
                     value={varianceFromDate}
                     max={varianceToDate || undefined}
                     onChange={(event) => setVarianceFromDate(event.target.value)}
-                    className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-normal"
+                    className="min-h-[40px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                   />
                 </label>
-                <label className="text-xs font-bold text-slate-700">
-                  Audit date to
+                <label className="space-y-1 text-xs font-semibold text-slate-700">
+                  <span>Audit date to</span>
                   <input
                     type="date"
                     value={varianceToDate}
                     min={varianceFromDate || undefined}
                     onChange={(event) => setVarianceToDate(event.target.value)}
-                    className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-normal"
+                    className="min-h-[40px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                   />
                 </label>
               </div>
-              <p className="text-xs text-slate-600">
-                Matching products: {filteredVarianceRows.length}
-                {' · '}Shortages: {filteredVarianceRows.filter((row) => row.direction === 'short').length}
-                {' · '}Excesses: {filteredVarianceRows.filter((row) => row.direction === 'excess').length}
-              </p>
-            </div>
-            <div className="max-h-[45vh] space-y-2 overflow-y-auto p-4">
-              {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => {
-                const counts = varianceCountsByStore.get(store.id);
-                return (
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">
+                <span>Include</span>
+                <select
+                  value={varianceReportType}
+                  onChange={(event) => setVarianceReportType(event.target.value as VarianceReportType)}
+                  className="min-h-[40px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                >
+                  <option value="both">Shortage and excess</option>
+                  <option value="shortage">Shortage only</option>
+                  <option value="excess">Excess only</option>
+                </select>
+              </label>
+              <div className="max-h-[38vh] space-y-2 overflow-y-auto">
+                {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => (
                   <button
                     key={store.id}
                     type="button"
@@ -588,21 +567,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     }}
                     className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-bold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-50"
                   >
-                    <span>
-                      {store.code ? `${store.code} - ` : ''}{store.name}
-                      <span className="mt-1 block text-xs font-medium text-slate-500">
-                        {counts?.shortage || 0} shortage · {counts?.excess || 0} excess
-                      </span>
-                    </span>
+                    <span>{store.code ? `${store.code} - ` : ''}{store.name}</span>
                     <FileDown className="h-4 w-4 shrink-0 text-[#1D5FD1]" />
                   </button>
-                );
-              })}
-              {storesWithVariance.size === 0 && (
-                <p className="py-4 text-center text-sm text-slate-500">
-                  No products match these filters.
-                </p>
-              )}
+                ))}
+                {storesWithVariance.size === 0 && (
+                  <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                    No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType} products found for the selected date range.
+                  </p>
+                )}
+              </div>
             </div>
           </section>
         </div>
