@@ -42,22 +42,55 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 }) => {
   const [activeReport, setActiveReport] = useState<ReportType>('no_bin');
   const [overdueDaysThreshold, setOverdueDaysThreshold] = useState<number>(60);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('ALL');
   const [showVarianceBranchPicker, setShowVarianceBranchPicker] = useState(false);
   const [isGeneratingVariancePdf, setIsGeneratingVariancePdf] = useState(false);
   const [variancePdfError, setVariancePdfError] = useState<string | null>(null);
-  const storesWithVariance = useMemo(() => {
-    const auditStoreIds = new Map(audits.map((audit) => [audit.id, audit.storeId]));
-    const storeIds = new Set<string>();
-    for (const item of items) {
-      if (item.physicalCount === undefined) continue;
-      const storeId = auditStoreIds.get(item.auditId);
-      if (storeId && calculateAuditDiscrepancy(item).direction !== 'balanced') {
-        storeIds.add(storeId);
+  const [varianceType, setVarianceType] = useState<'all' | 'shortage' | 'excess'>('all');
+  const [varianceSearch, setVarianceSearch] = useState('');
+  const [varianceFromDate, setVarianceFromDate] = useState('');
+  const [varianceToDate, setVarianceToDate] = useState('');
+  const filteredVarianceRows = useMemo(() => {
+    const auditById = new Map(audits.map((audit) => [audit.id, audit]));
+    const query = varianceSearch.trim().toLowerCase();
+    return items.flatMap((item) => {
+      if (item.physicalCount === undefined) return [];
+      const audit = auditById.get(item.auditId);
+      if (!audit) return [];
+      const discrepancy = calculateAuditDiscrepancy(item);
+      if (discrepancy.direction === 'balanced') return [];
+      if (varianceType === 'shortage' && discrepancy.direction !== 'short') return [];
+      if (varianceType === 'excess' && discrepancy.direction !== 'excess') return [];
+      if (
+        query &&
+        !item.product.name.toLowerCase().includes(query) &&
+        !item.product.code.toLowerCase().includes(query) &&
+        !audit.name.toLowerCase().includes(query) &&
+        !(item.bin || '').toLowerCase().includes(query)
+      ) {
+        return [];
       }
+      const auditDate = audit.date.slice(0, 10);
+      if (varianceFromDate && auditDate < varianceFromDate) return [];
+      if (varianceToDate && auditDate > varianceToDate) return [];
+      return [{ audit, item, direction: discrepancy.direction }];
+    });
+  }, [audits, items, varianceType, varianceSearch, varianceFromDate, varianceToDate]);
+  const varianceCountsByStore = useMemo(() => {
+    const counts = new Map<string, { shortage: number; excess: number }>();
+    for (const { audit, direction } of filteredVarianceRows) {
+      const count = counts.get(audit.storeId) || { shortage: 0, excess: 0 };
+      count[direction === 'short' ? 'shortage' : 'excess'] += 1;
+      counts.set(audit.storeId, count);
+    }
+    return counts;
+  }, [filteredVarianceRows]);
+  const storesWithVariance = useMemo(() => {
+    const storeIds = new Set<string>();
+    for (const storeId of varianceCountsByStore.keys()) {
+      storeIds.add(storeId);
     }
     return storeIds;
-  }, [audits, items]);
+  }, [varianceCountsByStore]);
 
   // Helper to trigger CSV/Excel export
   const downloadCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -222,12 +255,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         excesses: { audit: Audit; item: AuditItem; expectedQty: number; difference: number; value: number }[];
       }>();
 
-      for (const item of items) {
-        if (item.physicalCount === undefined) continue;
-        const audit = audits.find((entry) => entry.id === item.auditId);
-        if (!audit || audit.storeId !== storeId) continue;
+      for (const { audit, item } of filteredVarianceRows) {
+        if (audit.storeId !== storeId) continue;
         const discrepancy = calculateAuditDiscrepancy(item);
-        if (discrepancy.direction === 'balanced') continue;
 
         const store = stores.find((entry) => entry.id === audit.storeId);
         const branch = branchReports.get(audit.storeId) || {
@@ -270,7 +300,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         `INR ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(16);
-      pdf.text('Branch Shortage & Excess Report', margin, 14);
+      const reportTitle =
+        varianceType === 'shortage'
+          ? 'Branch Shortage Report'
+          : varianceType === 'excess'
+          ? 'Branch Excess Report'
+          : 'Branch Shortage & Excess Report';
+      pdf.text(reportTitle, margin, 14);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9);
       pdf.text(`Generated ${new Date().toLocaleString('en-IN')}`, margin, 20);
@@ -332,11 +368,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         drawTableHeader();
       };
 
+      const reportKinds: ('shortage' | 'excess')[] =
+        varianceType === 'all' ? ['shortage', 'excess'] : [varianceType];
       for (const branch of branchReports.values()) {
-        for (const [kind, rows] of [
-          ['shortage', branch.shortages],
-          ['excess', branch.excesses],
-        ] as const) {
+        for (const kind of reportKinds) {
+          const rows = kind === 'shortage' ? branch.shortages : branch.excesses;
           if (rows.length === 0) continue;
           rows.sort((a, b) => a.audit.date.localeCompare(b.audit.date) || a.item.product.name.localeCompare(b.item.product.name));
           drawSectionTitle(branch.branchName, branch.branchCode, kind, rows);
@@ -400,7 +436,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const branchFileName = `${reportBranch.branchCode ? `${reportBranch.branchCode}_` : ''}${reportBranch.branchName}`
         .replace(/[^a-z0-9_-]+/gi, '_')
         .replace(/^_+|_+$/g, '');
-      pdf.save(`StockAudit_Shortage_Excess_${branchFileName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const reportTypeName = varianceType === 'all' ? 'Shortage_Excess' : varianceType;
+      pdf.save(`StockAudit_${reportTypeName}_${branchFileName}_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
       console.error('Branch-wise shortage and excess PDF export failed', error);
       setVariancePdfError(error instanceof Error ? error.message : 'Could not create the branch-wise PDF report.');
@@ -484,22 +521,88 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="max-h-[60vh] space-y-2 overflow-y-auto p-4">
-              {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => (
-                <button
-                  key={store.id}
-                  type="button"
-                  disabled={isGeneratingVariancePdf}
-                  onClick={() => {
-                    setShowVarianceBranchPicker(false);
-                    void exportVariancePdf(store.id);
-                  }}
-                  className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-bold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-50"
+            <div className="space-y-3 border-b border-slate-100 p-4">
+              <label className="block text-xs font-bold text-slate-700">
+                Variance type
+                <select
+                  value={varianceType}
+                  onChange={(event) =>
+                    setVarianceType(event.target.value as 'all' | 'shortage' | 'excess')
+                  }
+                  className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm"
                 >
-                  <span>{store.code ? `${store.code} - ` : ''}{store.name}</span>
-                  <FileDown className="h-4 w-4 shrink-0 text-[#1D5FD1]" />
-                </button>
-              ))}
+                  <option value="all">Shortage and Excess</option>
+                  <option value="shortage">Shortage only</option>
+                  <option value="excess">Excess only</option>
+                </select>
+              </label>
+              <label className="block text-xs font-bold text-slate-700">
+                Search product, code, bin, or audit
+                <input
+                  type="search"
+                  value={varianceSearch}
+                  onChange={(event) => setVarianceSearch(event.target.value)}
+                  placeholder="Type to filter report data..."
+                  className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-normal"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-bold text-slate-700">
+                  Audit date from
+                  <input
+                    type="date"
+                    value={varianceFromDate}
+                    max={varianceToDate || undefined}
+                    onChange={(event) => setVarianceFromDate(event.target.value)}
+                    className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-normal"
+                  />
+                </label>
+                <label className="text-xs font-bold text-slate-700">
+                  Audit date to
+                  <input
+                    type="date"
+                    value={varianceToDate}
+                    min={varianceFromDate || undefined}
+                    onChange={(event) => setVarianceToDate(event.target.value)}
+                    className="mt-1 min-h-[40px] w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-normal"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-slate-600">
+                Matching products: {filteredVarianceRows.length}
+                {' · '}Shortages: {filteredVarianceRows.filter((row) => row.direction === 'short').length}
+                {' · '}Excesses: {filteredVarianceRows.filter((row) => row.direction === 'excess').length}
+              </p>
+            </div>
+            <div className="max-h-[45vh] space-y-2 overflow-y-auto p-4">
+              {stores.filter((store) => storesWithVariance.has(store.id)).map((store) => {
+                const counts = varianceCountsByStore.get(store.id);
+                return (
+                  <button
+                    key={store.id}
+                    type="button"
+                    disabled={isGeneratingVariancePdf}
+                    onClick={() => {
+                      setShowVarianceBranchPicker(false);
+                      void exportVariancePdf(store.id);
+                    }}
+                    className="flex min-h-[48px] w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-bold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <span>
+                      {store.code ? `${store.code} - ` : ''}{store.name}
+                      <span className="mt-1 block text-xs font-medium text-slate-500">
+                        {counts?.shortage || 0} shortage · {counts?.excess || 0} excess
+                      </span>
+                    </span>
+                    <FileDown className="h-4 w-4 shrink-0 text-[#1D5FD1]" />
+                  </button>
+                );
+              })}
+              {storesWithVariance.size === 0 && (
+                <p className="py-4 text-center text-sm text-slate-500">
+                  No products match these filters.
+                </p>
+              )}
             </div>
           </section>
         </div>
