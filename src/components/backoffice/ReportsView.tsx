@@ -407,7 +407,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
           for (const row of rows) {
             const productText = pdf.splitTextToSize(
-              `${row.item.product.code} - ${row.item.product.name}\n${row.audit.name}`,
+              `${row.item.product.code} - ${row.item.product.name}`,
               columns[0].width
             ) as string[];
             const auditorText = pdf.splitTextToSize(row.item.countedByUserName || '-', columns[1].width) as string[];
