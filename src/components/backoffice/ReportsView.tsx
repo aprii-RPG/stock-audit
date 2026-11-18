@@ -33,7 +33,7 @@ type ReportType =
   | 'auditor_accuracy'
   | 'repeat_problems';
 
-type VarianceReportType = 'both' | 'shortage' | 'excess';
+type VarianceReportType = 'both' | 'short' | 'excess';
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
   products,
@@ -297,7 +297,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const reportTitle =
         varianceReportType === 'both'
           ? 'Branch Shortage & Excess Report'
-          : `Branch ${varianceReportType === 'shortage' ? 'Shortage' : 'Excess'} Report`;
+          : `Branch ${varianceReportType === 'short' ? 'Shortage' : 'Excess'} Report`;
       pdf.text(reportTitle, margin, 14);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9);
@@ -371,7 +371,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           ['excess', branch.excesses],
         ];
         for (const [kind, rows] of sections) {
-          if (varianceReportType !== 'both' && kind !== varianceReportType) continue;
+          if (
+            varianceReportType !== 'both' &&
+            (kind === 'shortage' ? 'short' : 'excess') !== varianceReportType
+          ) continue;
           if (rows.length === 0) continue;
           rows.sort((a, b) => a.audit.date.localeCompare(b.audit.date) || a.item.product.name.localeCompare(b.item.product.name));
           drawSectionTitle(branch.branchName, branch.branchCode, kind, rows);
@@ -443,7 +446,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const branchFileName = `${reportBranch.branchCode ? `${reportBranch.branchCode}_` : ''}${reportBranch.branchName}`
         .replace(/[^a-z0-9_-]+/gi, '_')
         .replace(/^_+|_+$/g, '');
-      const typeFileName = varianceReportType === 'both' ? 'Shortage_Excess' : varianceReportType;
+      const typeFileName =
+        varianceReportType === 'both'
+          ? 'Shortage_Excess'
+          : varianceReportType === 'short'
+            ? 'Shortage'
+            : 'Excess';
       const dateFileName = `${varianceFromDate || 'all'}_to_${varianceToDate || 'all'}`;
       pdf.save(`StockAudit_${typeFileName}_${branchFileName}_${dateFileName}.pdf`);
     } catch (error) {
@@ -483,7 +491,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </button>
             {storesWithVariance.size === 0 && (
               <p className="mt-2 text-xs text-slate-500">
-                No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType} products match the selected audit dates.
+                No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType === 'short' ? 'shortage' : 'excess'} products match the selected audit dates.
               </p>
             )}
             {variancePdfError && (
@@ -560,7 +568,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   className="min-h-[40px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
                 >
                   <option value="both">Shortage and excess</option>
-                  <option value="shortage">Shortage only</option>
+                  <option value="short">Shortage only</option>
                   <option value="excess">Excess only</option>
                 </select>
               </label>
@@ -582,7 +590,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 ))}
                 {storesWithVariance.size === 0 && (
                   <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                    No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType} products found for the selected date range.
+                    No {varianceReportType === 'both' ? 'shortage or excess' : varianceReportType === 'short' ? 'shortage' : 'excess'} products found for the selected date range.
                   </p>
                 )}
               </div>
