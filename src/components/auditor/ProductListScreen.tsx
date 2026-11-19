@@ -39,7 +39,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChip, setFilterChip] = useState<'All' | 'Pending' | 'Recount' | 'Done'>('All');
-  const [packFilter, setPackFilter] = useState<'ALL' | 'TAB' | 'ML'>('ALL');
+  const [packFilter, setPackFilter] = useState<'ALL' | 'TAB' | 'CAP' | 'ML'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -62,6 +62,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
       const matchesPack =
         packFilter === 'ALL' ||
         (packFilter === 'TAB' && /(?:^|[^a-z])(?:tabs?|tablets?)(?:$|[^a-z])/i.test(pack)) ||
+        (packFilter === 'CAP' && /(?:^|[^a-z])(?:caps?|capsules?)(?:$|[^a-z])/i.test(pack)) ||
         (packFilter === 'ML' && /(?:^|[^a-z])ml(?:$|[^a-z])/i.test(pack));
       if (!matchesPack) return false;
 
@@ -221,7 +222,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
             value={packFilter}
             onChange={(event) => {
               const value = event.target.value;
-              if (value === 'ALL' || value === 'TAB' || value === 'ML') {
+              if (value === 'ALL' || value === 'TAB' || value === 'CAP' || value === 'ML') {
                 setPackFilter(value);
               }
             }}
@@ -230,6 +231,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
           >
             <option value="ALL">All packs</option>
             <option value="TAB">TAB</option>
+            <option value="CAP">CAP</option>
             <option value="ML">ML</option>
           </select>
         </label>
