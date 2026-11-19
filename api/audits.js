@@ -14,7 +14,11 @@ function shape(r, assigns) {
     assignedAuditorIds: mine.filter((x) => x.assign_role === "auditor").map((x) => x.user_id),
     assignedBackOfficeIds: mine.filter((x) => x.assign_role === "back office").map((x) => x.user_id),
     snapshotLockedAt: r.snapshot_locked_at
-      ? new Date(r.snapshot_locked_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
+      ? new Date(r.snapshot_locked_at).toLocaleString("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "Asia/Kolkata",
+        })
       : "",
     cutoffBillNo: r.cutoff_bill_no || "",
     notes: r.notes || undefined,
