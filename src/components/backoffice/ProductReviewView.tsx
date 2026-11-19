@@ -139,11 +139,12 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     setActionError(null);
     setActionSuccess(null);
 
-    // Pick default recount assignee different from original counter
-    const differentUser = users.find(
-      (u) => u.id !== item.countedByUserId && (u.role === 'auditor' || u.role === 'back office')
+    const differentAuditor = users.find(
+      (u) => u.id !== item.countedByUserId && u.role === 'auditor'
     );
-    setRecountAssigneeId(differentUser?.id || users[1]?.id || '');
+    setRecountAssigneeId(
+      differentAuditor?.id || users.find((u) => u.role === 'auditor')?.id || ''
+    );
     setRecountNote('');
   };
 
@@ -222,12 +223,6 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
     if (!selectedItem) return;
     if (!recountAssigneeId) {
       setActionError('Please select a recount assignee.');
-      return;
-    }
-
-    // Business rule check: Recount must be by a different person!
-    if (selectedItem.countedByUserId && selectedItem.countedByUserId === recountAssigneeId) {
-      setActionError('Business Rule Violation: Recount must be assigned to a DIFFERENT person than original counter.');
       return;
     }
 
@@ -934,7 +929,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
               <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-300 space-y-2.5 animate-in fade-in">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold text-amber-900">
-                    Dispatch Recount (Different Auditor Required)
+                    Dispatch Recount
                   </p>
                   <button
                     onClick={() => setShowRecountForm(false)}
@@ -954,7 +949,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                     className="w-full px-2.5 py-2 text-xs rounded-lg border border-amber-300 bg-white min-h-[40px]"
                   >
                     {users
-                      .filter((u) => u.id !== selectedItem.countedByUserId)
+                      .filter((u) => u.role === 'auditor')
                       .map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.role})
@@ -962,8 +957,7 @@ export const ProductReviewView: React.FC<ProductReviewViewProps> = ({
                       ))}
                   </select>
                   <p className="text-[10px] text-amber-700 mt-1">
-                    Original counter: <strong>{selectedItem.countedByUserName || '—'}</strong>{' '}
-                    (excluded per business rule)
+                    Original counter can also be assigned: <strong>{selectedItem.countedByUserName || '—'}</strong>
                   </p>
                 </div>
 

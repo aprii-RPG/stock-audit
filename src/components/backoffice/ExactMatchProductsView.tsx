@@ -64,13 +64,9 @@ export const ExactMatchProductsView: React.FC<ExactMatchProductsViewProps> = ({
   }, [allExactMatches, storeFilter, search]);
 
   const selectedMatches = allExactMatches.filter(({ item }) => selectedItemIds.includes(item.id));
-  const selectedAuditorIds = new Set(
-    selectedMatches.map(({ item }) => item.countedByUserId).filter(Boolean)
-  );
   const eligibleAssignees = users.filter(
     (user) =>
       user.role === 'auditor' &&
-      !selectedAuditorIds.has(user.id) &&
       selectedMatches.every(({ audit }) => audit.status === 'in_progress')
   );
   const dispatchableSelected = selectedMatches.filter(({ audit }) => audit.status === 'in_progress');
@@ -92,11 +88,6 @@ export const ExactMatchProductsView: React.FC<ExactMatchProductsViewProps> = ({
       setError('Only products in in-progress audits can be dispatched for recount.');
       return;
     }
-    if (selectedAuditorIds.has(assigneeId)) {
-      setError('The recount auditor must be different from every selected product’s original counter.');
-      return;
-    }
-
     setIsDispatching(true);
     setError(null);
     setSuccess(null);

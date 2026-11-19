@@ -66,11 +66,6 @@ export default async function handler(req, res) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Select an active field auditor for the recount." });
     }
-    if (item.counted_by_user_id && item.counted_by_user_id === recountAssigneeId) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Recount must be assigned to someone other than the original counter." });
-    }
-
     const recountNote = (note || "Recount requested for a previously exact-match product.").trim().slice(0, 500);
     await client.query(
       `UPDATE audit_items
