@@ -39,6 +39,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChip, setFilterChip] = useState<'All' | 'Pending' | 'Recount' | 'Done'>('All');
+  const [packFilter, setPackFilter] = useState<'ALL' | 'TAB' | 'ML'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -57,6 +58,13 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 
       if (!matchesSearch) return false;
 
+      const pack = item.product.pack;
+      const matchesPack =
+        packFilter === 'ALL' ||
+        (packFilter === 'TAB' && /(?:^|[^a-z])(?:tabs?|tablets?)(?:$|[^a-z])/i.test(pack)) ||
+        (packFilter === 'ML' && /(?:^|[^a-z])ml(?:$|[^a-z])/i.test(pack));
+      if (!matchesPack) return false;
+
       if (filterChip === 'All') return true;
       if (filterChip === 'Pending') {
         return item.status === 'not_started' || item.status === 'awaiting_approval';
@@ -70,7 +78,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 
       return true;
     });
-  }, [items, deferredSearchQuery, filterChip]);
+  }, [items, deferredSearchQuery, filterChip, packFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const visibleItems = useMemo(() => {
@@ -80,7 +88,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [audit.id, deferredSearchQuery, filterChip]);
+  }, [audit.id, deferredSearchQuery, filterChip, packFilter]);
 
   useEffect(() => {
     if (currentPage > pageCount) setCurrentPage(pageCount);
@@ -97,7 +105,7 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
   }, [items]);
 
   return (
-    <div className="flex flex-col h-full bg-[#F7FAFF]">
+    <div className="flex flex-col h-full bg-[#F7FAFF] pb-16 sm:pb-0">
       {/* Header Bar */}
       <div className="p-3 sm:p-4 bg-white border-b border-blue-100 shadow-2xs">
         {!isTabletSplit && (
@@ -205,75 +213,97 @@ export const ProductListScreen: React.FC<ProductListScreenProps> = ({
             <span>({counts.done})</span>
           </button>
         </div>
+
+        <label className="flex items-center gap-2 mt-2 text-xs font-semibold text-slate-600">
+          <Filter className="w-3.5 h-3.5 shrink-0 text-[#0B3D91]" />
+          <span>Pack</span>
+          <select
+            value={packFilter}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === 'ALL' || value === 'TAB' || value === 'ML') {
+                setPackFilter(value);
+              }
+            }}
+            className="min-h-[38px] flex-1 rounded-lg border border-blue-200 bg-white px-2.5 text-xs font-semibold text-slate-700"
+            aria-label="Filter products by pack type"
+          >
+            <option value="ALL">All packs</option>
+            <option value="TAB">TAB</option>
+            <option value="ML">ML</option>
+          </select>
+        </label>
       </div>
 
       {/* Product List Content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-white rounded-2xl border border-blue-100 mt-2">
-            <Layers className="w-10 h-10 text-blue-200 mx-auto mb-2" />
-            <p className="text-sm font-bold text-slate-700">No products found</p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Try adjusting your search query or filter chip.
-            </p>
-          </div>
-        ) : (
-          visibleItems.map((item) => {
-            const isSelected = selectedItem?.id === item.id;
-            const hasBin = Boolean(item.bin && item.bin.trim().length > 0);
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-12 px-4 bg-white rounded-2xl border border-blue-100 mt-2">
+              <Layers className="w-10 h-10 text-blue-200 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">No products found</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Try adjusting your search query or filter chip.
+              </p>
+            </div>
+          ) : (
+            visibleItems.map((item) => {
+              const isSelected = selectedItem?.id === item.id;
+              const hasBin = Boolean(item.bin && item.bin.trim().length > 0);
 
-            return (
-              <div
-                key={item.id}
-                onClick={() => onSelectItem(item)}
-                className={`p-3.5 rounded-xl border transition cursor-pointer select-none min-h-[58px] ${
-                  isSelected
-                    ? 'bg-blue-50/80 border-[#1D5FD1] ring-2 ring-blue-400/40 shadow-xs'
-                    : 'bg-white border-blue-100/90 hover:border-blue-300 hover:bg-blue-50/30'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    {/* Row 1: Product Name & Pack */}
-                    <div className="flex flex-wrap items-baseline gap-1.5">
-                      <h4 className="text-sm font-bold text-slate-900 leading-snug">
-                        {item.product.name}
-                      </h4>
-                      <span className="text-xs text-slate-500 font-medium">
-                        ({item.product.pack})
-                      </span>
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectItem(item)}
+                  className={`p-3.5 rounded-xl border transition cursor-pointer select-none min-h-[58px] ${
+                    isSelected
+                      ? 'bg-blue-50/80 border-[#1D5FD1] ring-2 ring-blue-400/40 shadow-xs'
+                      : 'bg-white border-blue-100/90 hover:border-blue-300 hover:bg-blue-50/30'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {/* Row 1: Product Name & Pack */}
+                      <div className="flex flex-wrap items-baseline gap-1.5">
+                        <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                          {item.product.name}
+                        </h4>
+                        <span className="text-xs text-slate-500 font-medium">
+                          ({item.product.pack})
+                        </span>
+                      </div>
+
+                      {/* Row 2: Company & Bin */}
+                      <div className="flex items-center gap-2 mt-1 text-xs">
+                        <span className="text-slate-600 font-medium truncate max-w-[180px]">
+                          {item.product.company}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span
+                          className={`font-semibold px-1.5 py-0.5 rounded text-[11px] ${
+                            hasBin
+                              ? 'bg-blue-50 text-[#0B3D91] border border-blue-200'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          }`}
+                        >
+                          {hasBin ? `Bin: ${item.bin}` : 'No bin'}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Row 2: Company & Bin */}
-                    <div className="flex items-center gap-2 mt-1 text-xs">
-                      <span className="text-slate-600 font-medium truncate max-w-[180px]">
-                        {item.product.company}
-                      </span>
-                      <span className="text-slate-300">•</span>
-                      <span
-                        className={`font-semibold px-1.5 py-0.5 rounded text-[11px] ${
-                          hasBin
-                            ? 'bg-blue-50 text-[#0B3D91] border border-blue-200'
-                            : 'bg-slate-100 text-slate-500 border border-slate-200'
-                        }`}
-                      >
-                        {hasBin ? `Bin: ${item.bin}` : 'No bin'}
-                      </span>
+                    {/* Status Chip */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <StatusChip status={item.status} size="sm" />
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>
-                  </div>
-
-                  {/* Status Chip */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <StatusChip status={item.status} size="sm" />
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
         {filteredItems.length > 0 && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2">
+          <div className="mx-3 mb-3 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2">
             <p className="text-[11px] font-medium text-slate-600">
               Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
               {Math.min(currentPage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
